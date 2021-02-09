@@ -10,11 +10,12 @@ class TimelineTrackerGateway:
     def __init__(self, url: str):
         self._url = url
 
-    def post_location(self, location_id: str, location_json: Dict[str, Any]) -> None:
-        url = f"{self._url}/api/location/{location_id}"
+    def post_location(self, location_json: Dict[str, Any]) -> Dict[str, Any]:
+        url = f"{self._url}/api/location"
         response = requests.post(url, json=location_json)
         if response.status_code != HTTPStatus.CREATED:
             raise RuntimeError(f"Failed to post location: {response.text}")
+        return response.json()
 
     def get_location(self, location_id: str) -> Dict[str, Any]:
         url = f"{self._url}/api/location/{location_id}"
