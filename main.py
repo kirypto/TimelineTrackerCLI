@@ -44,11 +44,21 @@ class ToolThing:
             metadata[key] = val
         return metadata
 
-    def _input_position(self, prompt: str) -> float:
+    def _input_spacial_position(self, prompt: str, *, mm_conversion: bool = False) -> float:
         print(prompt)
-        km_portion = float("0" + input("      km="))
-        mm_portion = float("0" + input("      mm="))
+        km_portion = float(input("      km=") or 0)
+        mm_portion = float(input("      mm=") or 0) if mm_conversion else 0
         return km_portion + self._unit_scale * mm_portion
+
+    def _input_time_position(self, prompt) -> float:
+        print(prompt)
+        year_portion = float(input("      year=") or 0)
+        month_portion = float(input("      month=") or 0)
+        day_portion = float(input("      day=") or 0)
+        hour_portion = float(input("      hour=") or 0)
+        if month_portion != 0:
+            raise NotImplementedError("Month calculation not yet supported")
+        return 313 * year_portion + day_portion + hour_portion / 28.0
 
     def doitz(self) -> NoReturn:
         while True:
@@ -75,24 +85,24 @@ class ToolThing:
                         "description": input("- Description: "),
                         "span": {
                             "latitude": {
-                                "low": self._input_position("- Span:\n  - Latitude:\n    - Low: "),
-                                "high": self._input_position("    - High: "),
+                                "low": self._input_spacial_position("- Span:\n  - Latitude:\n    - Low: ", mm_conversion=True),
+                                "high": self._input_spacial_position("    - High: ", mm_conversion=True),
                             },
                             "longitude": {
-                                "low": self._input_position("  - Longitude:\n    - Low: "),
-                                "high": self._input_position("    - High: "),
+                                "low": self._input_spacial_position("  - Longitude:\n    - Low: ", mm_conversion=True),
+                                "high": self._input_spacial_position("    - High: ", mm_conversion=True),
                             },
                             "altitude": {
-                                "low": self._input_position("  - Altitude:\n    - Low: "),
-                                "high": self._input_position("    - High: "),
+                                "low": self._input_spacial_position("  - Altitude:\n    - Low: "),
+                                "high": self._input_spacial_position("    - High: "),
                             },
                             "continuum": {
-                                "low": self._input_position("  - Continuum:\n    - Low: "),
-                                "high": self._input_position("    - High: "),
+                                "low": self._input_time_position("  - Continuum:\n    - Low: "),
+                                "high": self._input_time_position("    - High: "),
                             },
                             "reality": {
-                                "low": self._input_position("  - Reality:\n    - Low: "),
-                                "high": self._input_position("    - High: "),
+                                "low": float(input("  - Reality:\n    - Low: ")),
+                                "high": float(input("    - High: ")),
                             },
                         },
                         "tags": self._input_tags(),
