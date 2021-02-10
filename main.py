@@ -101,8 +101,8 @@ class ToolThing:
                                 "high": self._input_time_position("    - High: "),
                             },
                             "reality": {
-                                "low": float(input("  - Reality:\n    - Low: ")),
-                                "high": float(input("    - High: ")),
+                                "low": float(input("  - Reality:\n    - Low: ") or 0),
+                                "high": float(input("    - High: ") or 0),
                             },
                         },
                         "tags": self._input_tags(),
