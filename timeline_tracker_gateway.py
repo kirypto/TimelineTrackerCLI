@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 import requests
 
@@ -23,4 +23,15 @@ class TimelineTrackerGateway:
         if response.status_code != HTTPStatus.OK:
             raise RuntimeError(f"Failed to post location: {response.text}")
         return response.json()
+
+    def get_locations(self, **filter_kwargs: Dict[str, str]) -> List[str]:
+        url = f"{self._url}/api/locations"
+        if filter_kwargs:
+            url += "?"
+            url += "&".join([f"{key}={val}" for key, val in filter_kwargs.items()])
+        response = requests.get(url)
+        if response.status_code != HTTPStatus.OK:
+            raise RuntimeError(f"Failed to post location: {response.text}")
+        return response.json()
+
 

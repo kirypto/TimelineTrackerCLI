@@ -9,6 +9,7 @@ class _Command(Enum):
     CHANGE_UNIT_SCALE = 1
     CREATE_LOCATION = 2
     GET_LOCATION_DETAIL = 3
+    FIND_LOCATION = 4
 
     @property
     def display_text(self) -> str:
@@ -84,6 +85,8 @@ class ToolThing:
                     self.handle_get_location_detail()
                 elif command == _Command.CREATE_LOCATION:
                     self._handle_create_location()
+                elif command == _Command.FIND_LOCATION:
+                    self._handle_find_entity(_EntityType.LOCATION)
                 else:
                     print(f"ERROR: Unknown command '{command}'")
             except BaseException as e:
@@ -128,6 +131,34 @@ class ToolThing:
         location = self._gateway.post_location(location_json)
         print(dumps(location, indent=2))
         self._current_id = location["id"]
+
+    def _handle_find_entity(self, entity_type: _EntityType) -> None:
+        print("Enter query params:")
+        filters = {
+            "nameIs": input("- Name is: ") or None,
+            "nameHas": input("- Name has: ") or None,
+            "taggedAll": input("- Tagged all: ") or None,
+            "taggedAny": input("- Tagged any: ") or None,
+            "taggedOnly": input("- Tagged only: ") or None,
+            "taggedNone": input("- Tagged none: ") or None,
+        }
+        filters = {filterName: filterValue for filterName, filterValue in filters.items() if filterValue is not None}
+        if entity_type == _EntityType.LOCATION:
+            entity_name_and_ids = [
+                (self._gateway.get_location(entity_id)["name"], entity_id)
+                for entity_id in (self._gateway.get_locations(**filters))
+            ]
+        else:
+            raise NotImplementedError(f"Entity type '{entity_type.value}' is not supported")
+
+        if not entity_name_and_ids:
+            print(f"No matching {entity_type.value}s found")
+            return
+        print(f"Select from the following {entity_type.value}s (the id will be stored)")
+        for index, (entity_name, entity_id) in enumerate(entity_name_and_ids):
+            print(f"{index}. {entity_name} ({entity_id})")
+        choice = int(input("Select number: "))
+        self._current_id = entity_name_and_ids[choice][1]
 
 
 def _main():
