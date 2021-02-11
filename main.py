@@ -6,10 +6,11 @@ from timeline_tracker_gateway import TimelineTrackerGateway
 
 
 class _Command(Enum):
-    CHANGE_UNIT_SCALE = 1
-    CREATE_LOCATION = 2
-    GET_LOCATION_DETAIL = 3
-    FIND_LOCATION = 4
+    CHANGE_UNIT_SCALE = 5
+    CREATE_LOCATION = 4
+    GET_LOCATION_DETAIL = 2
+    FIND_LOCATION = 1
+    MODIFY_LOCATION = 3
 
     @property
     def display_text(self) -> str:
@@ -18,6 +19,19 @@ class _Command(Enum):
 
 class _EntityType(Enum):
     LOCATION = "location"
+
+
+class _PatchOp(Enum):
+    ADD = 1
+    COPY = 5
+    MOVE = 4
+    REMOVE = 2
+    REPLACE = 3
+    TEST = 6
+
+    @property
+    def display_text(self) -> str:
+        return self.name.replace("_", " ").lower()
 
 
 class ToolThing:
@@ -87,6 +101,8 @@ class ToolThing:
                     self._handle_create_location()
                 elif command == _Command.FIND_LOCATION:
                     self._handle_find_entity(_EntityType.LOCATION)
+                elif command == _Command.MODIFY_LOCATION:
+                    self._handle_modify_entity(_EntityType.LOCATION)
                 else:
                     print(f"ERROR: Unknown command '{command}'")
             except BaseException as e:
@@ -159,6 +175,31 @@ class ToolThing:
             print(f"{index}. {entity_name} ({entity_id})")
         choice = int(input("Select number: "))
         self._current_id = entity_name_and_ids[choice][1]
+
+    def _handle_modify_entity(self, entity_type: _EntityType) -> None:
+        entity_id = input(f"Input {entity_type.value} id (press enter to use current id): ").strip()
+        patches = []
+        patch_operation_choices = ", ".join([f"{op.display_text}={op.value}" for op in sorted(_PatchOp, key=lambda e: e.value)])
+        while True:
+            op_raw = input(f"Input patch 'op' ({patch_operation_choices}, or leave blank to continue): ")
+            if op_raw == "":
+                break
+            patch_op = _PatchOp(int(op_raw))
+            patch = {
+                "op": patch_op,
+                "path": input("Input patch 'path': "),
+            }
+            if patch_op in [_PatchOp.ADD, _PatchOp.REPLACE, _PatchOp.TEST]:
+                patch["value"] = input("Input patch 'value': ")
+            if patch_op in [_PatchOp.MOVE, _PatchOp.COPY]:
+                patch["from"] = input("Input patch 'from': ")
+            patches.append(patch)
+
+        if entity_type == _EntityType.LOCATION:
+            modified_entity = self._gateway.patch_location(entity_id, patches)
+        else:
+            raise NotImplementedError(f"Entity type '{entity_type.value}' is not supported")
+        print(dumps(modified_entity, indent=2))
 
 
 def _main():

@@ -21,7 +21,14 @@ class TimelineTrackerGateway:
         url = f"{self._url}/api/location/{location_id}"
         response = requests.get(url)
         if response.status_code != HTTPStatus.OK:
-            raise RuntimeError(f"Failed to post location: {response.text}")
+            raise RuntimeError(f"Failed to get location: {response.text}")
+        return response.json()
+
+    def patch_location(self, location_id: str, patches: List[dict]) -> Dict[str, Any]:
+        url = f"{self._url}/api/location/{location_id}"
+        response = requests.patch(url, json=patches)
+        if response.status_code != HTTPStatus.OK:
+            raise RuntimeError(f"Failed to patch location: {response.text}")
         return response.json()
 
     def get_locations(self, **filter_kwargs: Dict[str, str]) -> List[str]:
@@ -31,7 +38,7 @@ class TimelineTrackerGateway:
             url += "&".join([f"{key}={val}" for key, val in filter_kwargs.items()])
         response = requests.get(url)
         if response.status_code != HTTPStatus.OK:
-            raise RuntimeError(f"Failed to post location: {response.text}")
+            raise RuntimeError(f"Failed to get locations: {response.text}")
         return response.json()
 
 
