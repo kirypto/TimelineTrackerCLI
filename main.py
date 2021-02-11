@@ -6,11 +6,14 @@ from timeline_tracker_gateway import TimelineTrackerGateway
 
 
 class _Command(Enum):
-    CHANGE_UNIT_SCALE = 5
+    # Location
     CREATE_LOCATION = 4
     GET_LOCATION_DETAIL = 2
     FIND_LOCATION = 1
     MODIFY_LOCATION = 3
+    # Other
+    CHANGE_UNIT_SCALE = 6
+    SET_CURRENT_ID = 5
 
     @property
     def display_text(self) -> str:
@@ -39,10 +42,43 @@ class ToolThing:
     _current_id: Optional[str]
     _unit_scale: float
 
+    @property
+    def current_id(self) -> str:
+        if self._current_id is None:
+            raise ValueError("No id is set")
+        return self._current_id
+
     def __init__(self, gateway: TimelineTrackerGateway, unit_scale: float) -> None:
         self._gateway = gateway
         self._current_id = None
         self._unit_scale = unit_scale
+
+    def doitz(self) -> NoReturn:
+        while True:
+            try:
+                print("------------------------------")
+                print(f"- Current Id: {self._current_id}")
+                print(f"- Unit scale: 1mm = {self._unit_scale}km")
+                print("Available:")
+                for command in sorted(_Command, key=lambda c: c.value):
+                    print(f"{command.value}. {command.display_text}")
+                command = _Command(int(input("Input command: ")))
+                if command == _Command.CHANGE_UNIT_SCALE:
+                    self._unit_scale = float(input("Input new unit scale: "))
+                elif command == _Command.SET_CURRENT_ID:
+                    self._current_id = input("Input an id: ")
+                elif command == _Command.GET_LOCATION_DETAIL:
+                    self.handle_get_location_detail()
+                elif command == _Command.CREATE_LOCATION:
+                    self._handle_create_location()
+                elif command == _Command.FIND_LOCATION:
+                    self._handle_find_entity(_EntityType.LOCATION)
+                elif command == _Command.MODIFY_LOCATION:
+                    self._handle_modify_entity(_EntityType.LOCATION)
+                else:
+                    print(f"ERROR: Unknown command '{command}'")
+            except BaseException as e:
+                print(f"ERROR: {e}")
 
     @staticmethod
     def _input_tags() -> List[str]:
@@ -83,34 +119,8 @@ class ToolThing:
             raise NotImplementedError("Month calculation not yet supported")
         return 313 * year_portion + day_portion + hour_portion / 28.0
 
-    def doitz(self) -> NoReturn:
-        while True:
-            try:
-                print("------------------------------")
-                print(f"- Current Id: {self._current_id}")
-                print(f"- Unit scale: 1mm = {self._unit_scale}km")
-                print("Available:")
-                for command in sorted(_Command, key=lambda c: c.value):
-                    print(f"{command.value}. {command.display_text}")
-                command = _Command(int(input("Input command: ")))
-                if command == _Command.CHANGE_UNIT_SCALE:
-                    self._unit_scale = float(input("Input new unit scale: "))
-                elif command == _Command.GET_LOCATION_DETAIL:
-                    self.handle_get_location_detail()
-                elif command == _Command.CREATE_LOCATION:
-                    self._handle_create_location()
-                elif command == _Command.FIND_LOCATION:
-                    self._handle_find_entity(_EntityType.LOCATION)
-                elif command == _Command.MODIFY_LOCATION:
-                    self._handle_modify_entity(_EntityType.LOCATION)
-                else:
-                    print(f"ERROR: Unknown command '{command}'")
-            except BaseException as e:
-                print(e)
-
     def handle_get_location_detail(self):
-        location_id = input("Input location id (press enter to use current id): ").strip()
-        location = self._gateway.get_location(location_id if location_id else self._current_id)
+        location = self._gateway.get_location(self.current_id)
         print(dumps(location, indent=2))
         self._current_id = location["id"]
 
@@ -170,6 +180,12 @@ class ToolThing:
         if not entity_name_and_ids:
             print(f"No matching {entity_type.value}s found")
             return
+        elif len(entity_name_and_ids) == 1:
+            entity = entity_name_and_ids[0]
+            print(f"Only one matching {entity_type.value} found, auto selecting: {entity[0]} ({entity[1]})")
+            self._current_id = entity[1]
+            return
+
         print(f"Select from the following {entity_type.value}s (the id will be stored)")
         for index, (entity_name, entity_id) in enumerate(entity_name_and_ids):
             print(f"{index}. {entity_name} ({entity_id})")
@@ -177,7 +193,7 @@ class ToolThing:
         self._current_id = entity_name_and_ids[choice][1]
 
     def _handle_modify_entity(self, entity_type: _EntityType) -> None:
-        entity_id = input(f"Input {entity_type.value} id (press enter to use current id): ").strip()
+        entity_id = self.current_id
         patches = []
         patch_operation_choices = ", ".join([f"{op.display_text}={op.value}" for op in sorted(_PatchOp, key=lambda e: e.value)])
         while True:
