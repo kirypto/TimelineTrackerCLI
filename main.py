@@ -6,9 +6,17 @@ from timeline_tracker_gateway import TimelineTrackerGateway
 
 
 class _Command(Enum):
-    GET_LOCATION = 3
-    CREATE_LOCATION = 2
     CHANGE_UNIT_SCALE = 1
+    CREATE_LOCATION = 2
+    GET_LOCATION_DETAIL = 3
+
+    @property
+    def display_text(self) -> str:
+        return self.name.replace("_", " ").title()
+
+
+class _EntityType(Enum):
+    LOCATION = "location"
 
 
 class ToolThing:
@@ -68,53 +76,58 @@ class ToolThing:
                 print(f"- Unit scale: 1mm = {self._unit_scale}km")
                 print("Available:")
                 for command in sorted(_Command, key=lambda c: c.value):
-                    print(f"{command.value}. {command.name.replace('_', ' ').lower()}")
+                    print(f"{command.value}. {command.display_text}")
                 command = _Command(int(input("Input command: ")))
                 if command == _Command.CHANGE_UNIT_SCALE:
                     self._unit_scale = float(input("Input new unit scale: "))
-                if command == _Command.GET_LOCATION:
-                    location_id = input("Input location id (press enter to use current id): ").strip()
-                    location = self._gateway.get_location(location_id if location_id else self._current_id)
-                    print(dumps(location, indent=2))
-                    self._current_id = location["id"]
-                    continue
-                if command == _Command.CREATE_LOCATION:
-                    print("Creating location...")
-                    location_json = {
-                        "name": input("- Name: "),
-                        "description": input("- Description: "),
-                        "span": {
-                            "latitude": {
-                                "low": self._input_spacial_position("- Span:\n  - Latitude:\n    - Low: ", mm_conversion=True),
-                                "high": self._input_spacial_position("    - High: ", mm_conversion=True),
-                            },
-                            "longitude": {
-                                "low": self._input_spacial_position("  - Longitude:\n    - Low: ", mm_conversion=True),
-                                "high": self._input_spacial_position("    - High: ", mm_conversion=True),
-                            },
-                            "altitude": {
-                                "low": self._input_spacial_position("  - Altitude:\n    - Low: "),
-                                "high": self._input_spacial_position("    - High: "),
-                            },
-                            "continuum": {
-                                "low": self._input_time_position("  - Continuum:\n    - Low: "),
-                                "high": self._input_time_position("    - High: "),
-                            },
-                            "reality": {
-                                "low": float(input("  - Reality:\n    - Low: ") or 0),
-                                "high": float(input("    - High: ") or 0),
-                            },
-                        },
-                        "tags": self._input_tags(),
-                        "metadata": self._input_metadata()
-                    }
-                    location = self._gateway.post_location(location_json)
-                    print(dumps(location, indent=2))
-                    self._current_id = location["id"]
-                    continue
-                print(f"ERROR: Unknown command '{command}'")
+                elif command == _Command.GET_LOCATION_DETAIL:
+                    self.handle_get_location_detail()
+                elif command == _Command.CREATE_LOCATION:
+                    self._handle_create_location()
+                else:
+                    print(f"ERROR: Unknown command '{command}'")
             except BaseException as e:
                 print(e)
+
+    def handle_get_location_detail(self):
+        location_id = input("Input location id (press enter to use current id): ").strip()
+        location = self._gateway.get_location(location_id if location_id else self._current_id)
+        print(dumps(location, indent=2))
+        self._current_id = location["id"]
+
+    def _handle_create_location(self):
+        print("Creating location...")
+        location_json = {
+            "name": input("- Name: "),
+            "description": input("- Description: "),
+            "span": {
+                "latitude": {
+                    "low": self._input_spacial_position("- Span:\n  - Latitude:\n    - Low: ", mm_conversion=True),
+                    "high": self._input_spacial_position("    - High: ", mm_conversion=True),
+                },
+                "longitude": {
+                    "low": self._input_spacial_position("  - Longitude:\n    - Low: ", mm_conversion=True),
+                    "high": self._input_spacial_position("    - High: ", mm_conversion=True),
+                },
+                "altitude": {
+                    "low": self._input_spacial_position("  - Altitude:\n    - Low: "),
+                    "high": self._input_spacial_position("    - High: "),
+                },
+                "continuum": {
+                    "low": self._input_time_position("  - Continuum:\n    - Low: "),
+                    "high": self._input_time_position("    - High: "),
+                },
+                "reality": {
+                    "low": float(input("  - Reality:\n    - Low: ") or 0),
+                    "high": float(input("    - High: ") or 0),
+                },
+            },
+            "tags": self._input_tags(),
+            "metadata": self._input_metadata()
+        }
+        location = self._gateway.post_location(location_json)
+        print(dumps(location, indent=2))
+        self._current_id = location["id"]
 
 
 def _main():
