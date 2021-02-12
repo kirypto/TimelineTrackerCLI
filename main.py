@@ -210,6 +210,9 @@ class ToolThing:
             if patch_op in [_PatchOp.MOVE, _PatchOp.COPY]:
                 patch["from"] = input("Input patch 'from': ")
             patches.append(patch)
+        if not patches:
+            print("Nothing to do.")
+            return
 
         if entity_type == _EntityType.LOCATION:
             modified_entity = self._gateway.patch_location(entity_id, patches)
