@@ -7,10 +7,10 @@ from timeline_tracker_gateway import TimelineTrackerGateway
 
 class _Command(Enum):
     # Location
-    CREATE_LOCATION = 4
+    CREATE_LOCATION = 3
     GET_LOCATION_DETAIL = 2
     FIND_LOCATION = 1
-    MODIFY_LOCATION = 3
+    MODIFY_LOCATION = 4
     # Other
     CHANGE_UNIT_SCALE = 6
     SET_CURRENT_ID = 5
