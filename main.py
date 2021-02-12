@@ -200,9 +200,9 @@ class ToolThing:
             op_raw = input(f"Input patch 'op' ({patch_operation_choices}, or leave blank to continue): ")
             if op_raw == "":
                 break
-            patch_op = _PatchOp(int(op_raw))
+            patch_op: _PatchOp = _PatchOp(int(op_raw))
             patch = {
-                "op": patch_op,
+                "op": patch_op.name.lower(),
                 "path": input("Input patch 'path': "),
             }
             if patch_op in [_PatchOp.ADD, _PatchOp.REPLACE, _PatchOp.TEST]:
