@@ -126,8 +126,12 @@ class ToolThing:
 
     def _handle_create_location(self):
         print("Creating location...")
+        name = input("- Name: ")
+        if not name:
+            print("Empty name, aborting.")
+            return
         location_json = {
-            "name": input("- Name: "),
+            "name": name,
             "description": input("- Description: "),
             "span": {
                 "latitude": {
