@@ -70,7 +70,7 @@ class ToolThing:
                 elif command == _Command.GET_LOCATION_DETAIL:
                     self.handle_get_location_detail()
                 elif command == _Command.CREATE_LOCATION:
-                    self._handle_create_location()
+                    self._handle_create_entity(_EntityType.LOCATION)
                 elif command == _Command.FIND_LOCATION:
                     self._handle_find_entity(_EntityType.LOCATION)
                 elif command == _Command.MODIFY_LOCATION:
@@ -124,16 +124,18 @@ class ToolThing:
         print(dumps(location, indent=2))
         self._current_id = location["id"]
 
-    def _handle_create_location(self):
-        print("Creating location...")
+    def _handle_create_entity(self, entity_type: _EntityType.LOCATION) -> None:
+        print(f"Creating {entity_type}...")
         name = input("- Name: ")
         if not name:
             print("Empty name, aborting.")
             return
-        location_json = {
+        entity_json = {
             "name": name,
-            "description": input("- Description: "),
-            "span": {
+            "description": input("- Description: ")
+        }
+        if entity_type == _EntityType.LOCATION:
+            entity_json["span"] = {
                 "latitude": {
                     "low": self._input_spacial_position("- Span:\n  - Latitude:\n    - Low: ", mm_conversion=True),
                     "high": self._input_spacial_position("    - High: ", mm_conversion=True),
@@ -154,13 +156,17 @@ class ToolThing:
                     "low": float(input("  - Reality:\n    - Low: ") or 0),
                     "high": float(input("    - High: ") or 0),
                 },
-            },
-            "tags": self._input_tags(),
-            "metadata": self._input_metadata()
-        }
-        location = self._gateway.post_location(location_json)
-        print(dumps(location, indent=2))
-        self._current_id = location["id"]
+            }
+
+        entity_json["tags"] = self._input_tags()
+        entity_json["metadata"] = self._input_metadata()
+
+        if entity_type == _EntityType.LOCATION:
+            entity = self._gateway.post_location(entity_json)
+        else:
+            raise NotImplementedError(f"Entity type {entity_type} is not supported")
+        print(dumps(entity, indent=2))
+        self._current_id = entity["id"]
 
     def _handle_find_entity(self, entity_type: _EntityType) -> None:
         print("Enter query params:")
