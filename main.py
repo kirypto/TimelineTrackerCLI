@@ -1,7 +1,8 @@
 from enum import Enum
 from json import dumps
-from typing import List, Dict, NoReturn, Optional, Any
+from typing import List, Dict, NoReturn, Optional, Any, Tuple
 from shutil import get_terminal_size
+from math import floor
 
 from timeline_tracker_gateway import TimelineTrackerGateway
 
@@ -18,9 +19,10 @@ class _Command(Enum):
     FIND_TRAVELER = 5
     MODIFY_TRAVELER = 8
     # Other
-    EXIT = 9
+    EXIT = 12
     CHANGE_UNIT_SCALE = 10
-    SET_CURRENT_ID = 11
+    SET_CURRENT_ID = 9
+    TRANSLATE_TIME = 11
 
     @property
     def display_text(self) -> str:
@@ -43,6 +45,47 @@ class _PatchOp(Enum):
     @property
     def display_text(self) -> str:
         return self.name.replace("_", " ").lower()
+
+
+class TimeHelper:
+    DAYS_PER_YEAR = 313.0
+    HOURS_PER_DAY = 28.0
+    MINUTES_PER_HOUR = 60.0
+
+    @staticmethod
+    def convert_time_to_ymdhm(raw: float) -> Tuple[float, float, float, float, float]:
+        year_portion = raw // TimeHelper.DAYS_PER_YEAR
+        raw -= year_portion * TimeHelper.DAYS_PER_YEAR
+        month_portion = 0  # TODO implement month translation
+        day_portion = floor(raw)
+        raw -= day_portion
+        hour_portion = floor(raw * TimeHelper.HOURS_PER_DAY)
+        raw -= hour_portion / TimeHelper.HOURS_PER_DAY
+        minute_portion = round(raw * TimeHelper.HOURS_PER_DAY * TimeHelper.MINUTES_PER_HOUR, 2)
+        return year_portion, month_portion, day_portion, hour_portion, minute_portion
+
+    @staticmethod
+    def convert_time_from_ymdhm(year: float, month: float, day: float, hour: float = 0, minute: float = 0) -> float:
+        if month != 0:
+            # TODO implement month translation
+            print("[WARN] months are not implemented and ignored for now")
+        return (
+                year * TimeHelper.DAYS_PER_YEAR +
+                month * 0 +
+                day +
+                hour / TimeHelper.HOURS_PER_DAY +
+                minute / TimeHelper.MINUTES_PER_HOUR / TimeHelper.HOURS_PER_DAY)
+
+    @staticmethod
+    def input_ymdh(prompt) -> float:
+        print(prompt)
+        year_portion = float(input("      year=") or 0)
+        # month_portion = float(input("      month=") or 0)
+        day_portion = float(input("      day=") or 0)
+        hour_portion = float(input("      hour=") or 0)
+        # if month_portion != 0:
+        #     raise NotImplementedError("Month calculation not yet supported")
+        return TimeHelper.convert_time_from_ymdhm(year_portion, 0, day_portion, hour_portion)
 
 
 class ToolThing:
@@ -88,6 +131,10 @@ class ToolThing:
                     self._handle_find_entity(_EntityType.TRAVELER)
                 elif command == _Command.MODIFY_TRAVELER:
                     self._handle_modify_entity(_EntityType.TRAVELER)
+                elif command == _Command.TRANSLATE_TIME:
+                    time = float(input("Input Raw Time: "))
+                    year, month, day, hour, minute = TimeHelper.convert_time_to_ymdhm(time)
+                    print(f"{year}y, {month}m, {day}d, {hour}h, {minute}m")
                 else:
                     print(f"ERROR: Unknown command '{command}'")
             except Exception as e:
@@ -122,16 +169,6 @@ class ToolThing:
         mm_portion = float(input("      mm=") or 0) if mm_conversion else 0
         return km_portion + self._unit_scale * mm_portion
 
-    def _input_time_position(self, prompt) -> float:
-        print(prompt)
-        year_portion = float(input("      year=") or 0)
-        month_portion = float(input("      month=") or 0)
-        day_portion = float(input("      day=") or 0)
-        hour_portion = float(input("      hour=") or 0)
-        if month_portion != 0:
-            raise NotImplementedError("Month calculation not yet supported")
-        return 313 * year_portion + day_portion + hour_portion / 28.0
-
     def _handle_get_entity_detail(self, entity_type: _EntityType.LOCATION) -> None:
         entity = self._gateway.get_entity(entity_type.value, self.current_id)
         print(dumps(entity, indent=2))
@@ -162,8 +199,8 @@ class ToolThing:
                     "high": self._input_spacial_position("    - High: "),
                 },
                 "continuum": {
-                    "low": self._input_time_position("  - Continuum:\n    - Low: "),
-                    "high": self._input_time_position("    - High: "),
+                    "low": TimeHelper.input_ymdh("  - Continuum:\n    - Low: "),
+                    "high": TimeHelper.input_ymdh("    - High: "),
                 },
                 "reality": {
                     "low": float(input("  - Reality:\n    - Low: ") or 0),
@@ -181,7 +218,7 @@ class ToolThing:
                     "latitude": self._input_spacial_position("  - Latitude: ", mm_conversion=True),
                     "longitude": self._input_spacial_position("  - Longitude: ", mm_conversion=True),
                     "altitude": self._input_spacial_position(" - Altitude: "),
-                    "continuum": self._input_time_position(" - Continuum: "),
+                    "continuum": TimeHelper.input_ymdh(" - Continuum: "),
                     "reality": float(input(" - Reality: ") or 0),
                 }
                 entity_json["journey"].append({
