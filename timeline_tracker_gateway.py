@@ -10,35 +10,33 @@ class TimelineTrackerGateway:
     def __init__(self, url: str):
         self._url = url
 
-    def post_location(self, location_json: Dict[str, Any]) -> Dict[str, Any]:
-        url = f"{self._url}/api/location"
-        response = requests.post(url, json=location_json)
+    def post_entity(self, resource: str, entity_json: Dict[str, Any]) -> Dict[str, Any]:
+        url = f"{self._url}/api/{resource}"
+        response = requests.post(url, json=entity_json)
         if response.status_code != HTTPStatus.CREATED:
-            raise RuntimeError(f"Failed to post location: {response.text}")
+            raise RuntimeError(f"Failed to post entity: {response.text}")
         return response.json()
 
-    def get_location(self, location_id: str) -> Dict[str, Any]:
-        url = f"{self._url}/api/location/{location_id}"
+    def get_entity(self, resource: str, entity_id: str) -> Dict[str, Any]:
+        url = f"{self._url}/api/{resource}/{entity_id}"
         response = requests.get(url)
         if response.status_code != HTTPStatus.OK:
-            raise RuntimeError(f"Failed to get location: {response.text}")
+            raise RuntimeError(f"Failed to get entity: {response.text}")
         return response.json()
 
-    def patch_location(self, location_id: str, patches: List[dict]) -> Dict[str, Any]:
-        url = f"{self._url}/api/location/{location_id}"
+    def patch_entity(self, resource: str, entity_id: str, patches: List[dict]) -> Dict[str, Any]:
+        url = f"{self._url}/api/{resource}/{entity_id}"
         response = requests.patch(url, json=patches)
         if response.status_code != HTTPStatus.OK:
-            raise RuntimeError(f"Failed to patch location: {response.text}")
+            raise RuntimeError(f"Failed to patch entity: {response.text}")
         return response.json()
 
-    def get_locations(self, **filter_kwargs: Dict[str, str]) -> List[str]:
-        url = f"{self._url}/api/locations"
+    def get_entities(self, resource: str, **filter_kwargs: Dict[str, str]) -> List[str]:
+        url = f"{self._url}/api/{resource}s"
         if filter_kwargs:
             url += "?"
             url += "&".join([f"{key}={val}" for key, val in filter_kwargs.items()])
         response = requests.get(url)
         if response.status_code != HTTPStatus.OK:
-            raise RuntimeError(f"Failed to get locations: {response.text}")
+            raise RuntimeError(f"Failed to get entities: {response.text}")
         return response.json()
-
-

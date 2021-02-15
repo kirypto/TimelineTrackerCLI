@@ -1,6 +1,7 @@
 from enum import Enum
 from json import dumps
-from typing import List, Dict, NoReturn, Optional
+from typing import List, Dict, NoReturn, Optional, Any
+from shutil import get_terminal_size
 
 from timeline_tracker_gateway import TimelineTrackerGateway
 
@@ -11,9 +12,15 @@ class _Command(Enum):
     GET_LOCATION_DETAIL = 2
     FIND_LOCATION = 1
     MODIFY_LOCATION = 4
+    # Traveler
+    CREATE_TRAVELER = 7
+    GET_TRAVELER_DETAIL = 6
+    FIND_TRAVELER = 5
+    MODIFY_TRAVELER = 8
     # Other
-    CHANGE_UNIT_SCALE = 6
-    SET_CURRENT_ID = 5
+    EXIT = 9
+    CHANGE_UNIT_SCALE = 10
+    SET_CURRENT_ID = 11
 
     @property
     def display_text(self) -> str:
@@ -22,6 +29,7 @@ class _Command(Enum):
 
 class _EntityType(Enum):
     LOCATION = "location"
+    TRAVELER = "traveler"
 
 
 class _PatchOp(Enum):
@@ -53,31 +61,36 @@ class ToolThing:
         self._current_id = None
         self._unit_scale = unit_scale
 
-    def doitz(self) -> NoReturn:
+    def main_loop(self) -> NoReturn:
         while True:
             try:
-                print("------------------------------")
-                print(f"- Current Id: {self._current_id}")
-                print(f"- Unit scale: 1mm = {self._unit_scale}km")
-                print("Available:")
-                for command in sorted(_Command, key=lambda c: c.value):
-                    print(f"{command.value}. {command.display_text}")
+                self._print_header()
                 command = _Command(int(input("Input command: ")))
-                if command == _Command.CHANGE_UNIT_SCALE:
+                if command == _Command.EXIT:
+                    exit()
+                elif command == _Command.CHANGE_UNIT_SCALE:
                     self._unit_scale = float(input("Input new unit scale: "))
                 elif command == _Command.SET_CURRENT_ID:
                     self._current_id = input("Input an id: ")
                 elif command == _Command.GET_LOCATION_DETAIL:
-                    self.handle_get_location_detail()
+                    self._handle_get_entity_detail(_EntityType.LOCATION)
                 elif command == _Command.CREATE_LOCATION:
                     self._handle_create_entity(_EntityType.LOCATION)
                 elif command == _Command.FIND_LOCATION:
                     self._handle_find_entity(_EntityType.LOCATION)
                 elif command == _Command.MODIFY_LOCATION:
                     self._handle_modify_entity(_EntityType.LOCATION)
+                elif command == _Command.GET_TRAVELER_DETAIL:
+                    self._handle_get_entity_detail(_EntityType.TRAVELER)
+                elif command == _Command.CREATE_TRAVELER:
+                    self._handle_create_entity(_EntityType.TRAVELER)
+                elif command == _Command.FIND_TRAVELER:
+                    self._handle_find_entity(_EntityType.TRAVELER)
+                elif command == _Command.MODIFY_TRAVELER:
+                    self._handle_modify_entity(_EntityType.TRAVELER)
                 else:
                     print(f"ERROR: Unknown command '{command}'")
-            except BaseException as e:
+            except Exception as e:
                 print(f"ERROR: {e}")
 
     @staticmethod
@@ -119,18 +132,18 @@ class ToolThing:
             raise NotImplementedError("Month calculation not yet supported")
         return 313 * year_portion + day_portion + hour_portion / 28.0
 
-    def handle_get_location_detail(self):
-        location = self._gateway.get_location(self.current_id)
-        print(dumps(location, indent=2))
-        self._current_id = location["id"]
+    def _handle_get_entity_detail(self, entity_type: _EntityType.LOCATION) -> None:
+        entity = self._gateway.get_entity(entity_type.value, self.current_id)
+        print(dumps(entity, indent=2))
+        self._current_id = entity["id"]
 
     def _handle_create_entity(self, entity_type: _EntityType.LOCATION) -> None:
-        print(f"Creating {entity_type}...")
+        print(f"Creating {entity_type.value}...")
         name = input("- Name: ")
         if not name:
             print("Empty name, aborting.")
             return
-        entity_json = {
+        entity_json: Dict[str, Any] = {
             "name": name,
             "description": input("- Description: ")
         }
@@ -157,14 +170,29 @@ class ToolThing:
                     "high": float(input("    - High: ") or 0),
                 },
             }
+        if entity_type == _EntityType.TRAVELER:
+            print("- Journey: ")
+            entity_json["journey"] = []
+            while True:
+                movement_type = input("  - Movement type (1=interpolated, 2=immediate, leave blank to continue): ")
+                if not movement_type:
+                    break
+                position = {
+                    "latitude": self._input_spacial_position("  - Latitude: ", mm_conversion=True),
+                    "longitude": self._input_spacial_position("  - Longitude: ", mm_conversion=True),
+                    "altitude": self._input_spacial_position(" - Altitude: "),
+                    "continuum": self._input_time_position(" - Continuum: "),
+                    "reality": float(input(" - Reality: ") or 0),
+                }
+                entity_json["journey"].append({
+                    "movement_type": movement_type,
+                    "position": position,
+                })
 
         entity_json["tags"] = self._input_tags()
         entity_json["metadata"] = self._input_metadata()
 
-        if entity_type == _EntityType.LOCATION:
-            entity = self._gateway.post_location(entity_json)
-        else:
-            raise NotImplementedError(f"Entity type {entity_type} is not supported")
+        entity = self._gateway.post_entity(entity_type.value, entity_json)
         print(dumps(entity, indent=2))
         self._current_id = entity["id"]
 
@@ -179,13 +207,10 @@ class ToolThing:
             "taggedNone": input("- Tagged none: ") or None,
         }
         filters = {filterName: filterValue for filterName, filterValue in filters.items() if filterValue is not None}
-        if entity_type == _EntityType.LOCATION:
-            entity_name_and_ids = [
-                (self._gateway.get_location(entity_id)["name"], entity_id)
-                for entity_id in (self._gateway.get_locations(**filters))
-            ]
-        else:
-            raise NotImplementedError(f"Entity type '{entity_type.value}' is not supported")
+        entity_name_and_ids = [
+            (self._gateway.get_entity(entity_type.value, entity_id)["name"], entity_id)
+            for entity_id in (self._gateway.get_entities(entity_type.value, **filters))
+        ]
 
         if not entity_name_and_ids:
             print(f"No matching {entity_type.value}s found")
@@ -224,11 +249,29 @@ class ToolThing:
             print("Nothing to do.")
             return
 
-        if entity_type == _EntityType.LOCATION:
-            modified_entity = self._gateway.patch_location(entity_id, patches)
-        else:
-            raise NotImplementedError(f"Entity type '{entity_type.value}' is not supported")
+        modified_entity = self._gateway.patch_entity(entity_type.value, entity_id, patches)
         print(dumps(modified_entity, indent=2))
+
+    def _print_header(self) -> None:
+        width, _ = get_terminal_size((100, 1))
+        print("".join("_" for _ in range(0, width)))
+        print(f"  Current Id: {self._current_id}".ljust(width - 30) + f"Unit scale: 1mm = {self._unit_scale}km  ".rjust(30))
+        print("Available Commands:")
+        commands_sorted = sorted(_Command, key=lambda c: c.value)
+
+        col_width = 24
+        num_cols = width // col_width
+        index = 0
+        message = ""
+        for _ in range(len(commands_sorted) // num_cols + 1):
+            for i in range(num_cols):
+                if index >= len(commands_sorted):
+                    break
+                command = commands_sorted[index]
+                index += 1
+                message += f"{command.value}. {command.display_text}".ljust(col_width)
+            message += "\n"
+        print(message)
 
 
 def _main():
@@ -236,7 +279,7 @@ def _main():
     gateway = TimelineTrackerGateway(url)
 
     tool = ToolThing(gateway, 15.79)
-    tool.doitz()
+    tool.main_loop()
 
 
 if __name__ == '__main__':
