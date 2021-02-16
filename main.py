@@ -19,10 +19,11 @@ class _Command(Enum):
     FIND_TRAVELER = 5
     MODIFY_TRAVELER = 8
     # Other
-    EXIT = 12
+    EXIT = 13
     CHANGE_UNIT_SCALE = 10
     SET_CURRENT_ID = 9
     TRANSLATE_TIME = 11
+    CALCULATE_AGE = 12
 
     @property
     def display_text(self) -> str:
@@ -135,6 +136,8 @@ class ToolThing:
                     time = float(input("Input Raw Time: "))
                     year, month, day, hour, minute = TimeHelper.convert_time_to_ymdhm(time)
                     print(f"{year}y, {month}m, {day}d, {hour}h, {minute}m")
+                elif command == _Command.CALCULATE_AGE:
+                    self._handle_calculate_age()
                 else:
                     print(f"ERROR: Unknown command '{command}'")
             except Exception as e:
@@ -313,6 +316,27 @@ class ToolThing:
                 message += f"{command.value}. {command.display_text}".ljust(col_width)
             message += "\n"
         print(message)
+
+    def _handle_calculate_age(self) -> None:
+        if self._current_id is None or not self._current_id.startswith("traveler"):
+            print("[ERROR] A traveler id must be stored currently, aborting.")
+            return
+        traveler = self._gateway.get_entity(_EntityType.TRAVELER.value, self._current_id)
+        age = 0
+        last_timestamp = None
+        for positional_move in traveler["journey"]:
+            curr_timestamp = positional_move["position"]["continuum"]
+            if positional_move["movement_type"] == "immediate" or last_timestamp is None:
+                last_timestamp = curr_timestamp
+                continue
+            delta = curr_timestamp - last_timestamp
+            last_timestamp = curr_timestamp
+            age += delta
+        years, months, days, hours, minutes = TimeHelper.convert_time_to_ymdhm(age)
+        name: str = traveler['name']
+        print(f"{name}'{'s' if not name.endswith('s') else ''} age is "
+              f"{years} years, {months} months, {days} days, {hours} hours, and {minutes} minutes.")
+
 
 
 def _main():
