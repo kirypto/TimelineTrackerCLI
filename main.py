@@ -169,12 +169,12 @@ class ToolThing:
         mm_portion = float(input("      mm=") or 0) if mm_conversion else 0
         return km_portion + self._unit_scale * mm_portion
 
-    def _handle_get_entity_detail(self, entity_type: _EntityType.LOCATION) -> None:
+    def _handle_get_entity_detail(self, entity_type: _EntityType) -> None:
         entity = self._gateway.get_entity(entity_type.value, self.current_id)
         print(dumps(entity, indent=2))
         self._current_id = entity["id"]
 
-    def _handle_create_entity(self, entity_type: _EntityType.LOCATION) -> None:
+    def _handle_create_entity(self, entity_type: _EntityType) -> None:
         print(f"Creating {entity_type.value}...")
         name = input("- Name: ")
         if not name:
@@ -210,9 +210,13 @@ class ToolThing:
         if entity_type == _EntityType.TRAVELER:
             print("- Journey: ")
             entity_json["journey"] = []
+            movement_types = {
+                "1": "interpolated",
+                "2": "immediate",
+            }
             while True:
-                movement_type = input("  - Movement type (1=interpolated, 2=immediate, leave blank to continue): ")
-                if not movement_type:
+                movement_type_choice = input("  - Movement type (1=interpolated, 2=immediate, leave blank to continue): ")
+                if not movement_type_choice:
                     break
                 position = {
                     "latitude": self._input_spacial_position("  - Latitude: ", mm_conversion=True),
@@ -222,7 +226,7 @@ class ToolThing:
                     "reality": float(input(" - Reality: ") or 0),
                 }
                 entity_json["journey"].append({
-                    "movement_type": movement_type,
+                    "movement_type": movement_types[movement_type_choice],
                     "position": position,
                 })
 
