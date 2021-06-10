@@ -18,12 +18,17 @@ class _Command(Enum):
     GET_TRAVELER_DETAIL = 6
     FIND_TRAVELER = 5
     MODIFY_TRAVELER = 8
+    # Traveler
+    CREATE_EVENT = 11
+    GET_EVENT_DETAIL = 10
+    FIND_EVENT = 9
+    MODIFY_EVENT = 12
     # Other
-    EXIT = 13
-    CHANGE_UNIT_SCALE = 10
-    SET_CURRENT_ID = 9
-    TRANSLATE_TIME = 11
-    CALCULATE_AGE = 12
+    EXIT = 0
+    CHANGE_UNIT_SCALE = 14
+    SET_CURRENT_ID = 13
+    TRANSLATE_TIME = 16
+    CALCULATE_AGE = 15
 
     @property
     def display_text(self) -> str:
@@ -139,7 +144,7 @@ class ToolThing:
                 elif command == _Command.CALCULATE_AGE:
                     self._handle_calculate_age()
                 else:
-                    print(f"ERROR: Unknown command '{command}'")
+                    print(f"ERROR: Unhandled command '{command}'")
             except Exception as e:
                 print(f"ERROR: {e}")
 
@@ -301,7 +306,8 @@ class ToolThing:
         print("".join("_" for _ in range(0, width)))
         print(f"  Current Id: {self._current_id}".ljust(width - 30) + f"Unit scale: 1mm = {self._unit_scale}km  ".rjust(30))
         print("Available Commands:")
-        commands_sorted = sorted(_Command, key=lambda c: c.value)
+        print(f"{_Command.EXIT.value}.  {_Command.EXIT.display_text}")
+        commands_sorted = sorted(filter(lambda c: c != _Command.EXIT, _Command), key=lambda c: c.value)
 
         col_width = 24
         num_cols = width // col_width
@@ -313,7 +319,8 @@ class ToolThing:
                     break
                 command = commands_sorted[index]
                 index += 1
-                message += f"{command.value}. {command.display_text}".ljust(col_width)
+                message += f"{command.value}. ".ljust(4)
+                message += f"{command.display_text}".ljust(col_width)
             message += "\n"
         print(message)
 
@@ -338,8 +345,8 @@ class ToolThing:
               f"{years} years, {months} months, {days} days, {hours} hours, and {minutes} minutes.")
 
 
-
 def _main():
+    # noinspection HttpUrlsUsage
     url = "http://172.16.1.101:1337"
     gateway = TimelineTrackerGateway(url)
 
