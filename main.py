@@ -1,11 +1,13 @@
 from enum import Enum
 from json import dumps
-from typing import List, Dict, NoReturn, Optional, Any, Tuple
+from typing import List, Dict, NoReturn, Optional, Any, Tuple, Type, TypeVar
 from shutil import get_terminal_size
 from math import floor
 
 from timeline_tracker_gateway import TimelineTrackerGateway
 
+
+T = TypeVar("T")
 
 class _Command(Enum):
     # Location
@@ -38,6 +40,7 @@ class _Command(Enum):
 class _EntityType(Enum):
     LOCATION = "location"
     TRAVELER = "traveler"
+    EVENT = "event"
 
 
 class _PatchOp(Enum):
@@ -137,6 +140,14 @@ class ToolThing:
                     self._handle_find_entity(_EntityType.TRAVELER)
                 elif command == _Command.MODIFY_TRAVELER:
                     self._handle_modify_entity(_EntityType.TRAVELER)
+                elif command == _Command.GET_EVENT_DETAIL:
+                    self._handle_get_entity_detail(_EntityType.EVENT)
+                elif command == _Command.CREATE_EVENT:
+                    self._handle_create_entity(_EntityType.EVENT)
+                elif command == _Command.FIND_EVENT:
+                    self._handle_find_entity(_EntityType.EVENT)
+                elif command == _Command.MODIFY_EVENT:
+                    self._handle_modify_entity(_EntityType.EVENT)
                 elif command == _Command.TRANSLATE_TIME:
                     time = float(input("Input Raw Time: "))
                     year, month, day, hour, minute = TimeHelper.convert_time_to_ymdhm(time)
@@ -149,14 +160,18 @@ class ToolThing:
                 print(f"ERROR: {e}")
 
     @staticmethod
-    def _input_tags() -> List[str]:
-        print("- Tags (leave blank and press enter to finish):")
+    def _input_list(name: str, item_type: Type[T], *, indent: int = 0, enforce_non_empty: bool = False) -> List[T]:
+        print(f"{''.ljust(indent)}- {name} (leave blank and press enter to finish):")
         tags = []
         while True:
-            tag = input("  - ").strip()
+            tag = input(f"{''.ljust(indent)}  - ").strip()
             if not tag:
-                break
-            tags.append(tag)
+                if not tags and enforce_non_empty:
+                    print(f"{''.ljust(indent)}  !! {name} list cannot be empty")
+                    continue
+                else:
+                    break
+            tags.append(item_type(tag))
         return tags
 
     @staticmethod
@@ -192,7 +207,7 @@ class ToolThing:
             "name": name,
             "description": input("- Description: ")
         }
-        if entity_type == _EntityType.LOCATION:
+        if entity_type in {_EntityType.LOCATION, _EntityType.EVENT}:
             entity_json["span"] = {
                 "latitude": {
                     "low": self._input_spacial_position("- Span:\n  - Latitude:\n    - Low: ", mm_conversion=True),
@@ -210,10 +225,7 @@ class ToolThing:
                     "low": TimeHelper.input_ymdh("  - Continuum:\n    - Low: "),
                     "high": TimeHelper.input_ymdh("    - High: "),
                 },
-                "reality": {
-                    "low": float(input("  - Reality:\n    - Low: ") or 0),
-                    "high": float(input("    - High: ") or 0),
-                },
+                "reality": self._input_list("Realities", int, indent=2, enforce_non_empty=True),
             }
         if entity_type == _EntityType.TRAVELER:
             print("- Journey: ")
@@ -237,8 +249,11 @@ class ToolThing:
                     "movement_type": movement_types[movement_type_choice],
                     "position": position,
                 })
+        if entity_type == _EntityType.EVENT:
+            entity_json["affected_locations"] = self._input_list("Affected Locations", str)
+            entity_json["affected_travelers"] = self._input_list("Affected Travelers", str)
 
-        entity_json["tags"] = self._input_tags()
+        entity_json["tags"] = self._input_list("Tags", str)
         entity_json["metadata"] = self._input_metadata()
 
         entity = self._gateway.post_entity(entity_type.value, entity_json)
