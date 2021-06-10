@@ -263,13 +263,15 @@ class ToolThing:
     def _handle_find_entity(self, entity_type: _EntityType) -> None:
         print("Enter query params:")
         filters = {
-            "nameIs": input("- Name is: ") or None,
             "nameHas": input("- Name has: ") or None,
-            "taggedAll": input("- Tagged all: ") or None,
-            "taggedAny": input("- Tagged any: ") or None,
-            "taggedOnly": input("- Tagged only: ") or None,
-            "taggedNone": input("- Tagged none: ") or None,
         }
+        if input("Enter additional filters? ") == "y":
+            filters.update({
+                "taggedAll": input("- Tagged all: ") or None,
+                "taggedAny": input("- Tagged any: ") or None,
+                "taggedOnly": input("- Tagged only: ") or None,
+                "taggedNone": input("- Tagged none: ") or None,
+            })
         filters = {filterName: filterValue for filterName, filterValue in filters.items() if filterValue is not None}
         entity_name_and_ids = [
             (self._gateway.get_entity(entity_type.value, entity_id)["name"], entity_id)
