@@ -11,28 +11,16 @@ T = TypeVar("T")
 
 
 class _Command(Enum):
-    # Location
-    CREATE_LOCATION = 3
-    GET_LOCATION_DETAIL = 2
-    FIND_LOCATION = 1
-    MODIFY_LOCATION = 4
-    # Traveler
-    CREATE_TRAVELER = 7
-    GET_TRAVELER_DETAIL = 6
-    FIND_TRAVELER = 5
-    MODIFY_TRAVELER = 8
-    # Traveler
-    CREATE_EVENT = 11
-    GET_EVENT_DETAIL = 10
-    FIND_EVENT = 9
-    MODIFY_EVENT = 12
-    # Other
     EXIT = 0
-    CHANGE_UNIT_SCALE = 14
-    SET_CURRENT_ID = 13
-    TRANSLATE_TIME = 16
-    CALCULATE_AGE = 15
-    GET_TIMELINE = 17
+    FIND_ENTITY = 1
+    GET_ENTITY_DETAIL = 2
+    CREATE_ENTITY = 3
+    MODIFY_ENTITY = 4
+    GET_TIMELINE = 5
+    SET_CURRENT_ID = 10
+    CHANGE_UNIT_SCALE = 11
+    TRANSLATE_TIME = 12
+    CALCULATE_AGE = 13
 
     @property
     def display_text(self) -> str:
@@ -111,7 +99,7 @@ class ToolThing:
         return self._current_id
 
     @property
-    def current_event_type(self) -> _EntityType:
+    def current_entity_type(self) -> _EntityType:
         return _EntityType(self.current_id.split("-")[0])
 
     def __init__(self, gateway: TimelineTrackerGateway, unit_scale: float) -> None:
@@ -130,30 +118,14 @@ class ToolThing:
                     self._unit_scale = float(input("Input new unit scale: "))
                 elif command == _Command.SET_CURRENT_ID:
                     self._current_id = input("Input an id: ")
-                elif command == _Command.GET_LOCATION_DETAIL:
-                    self._handle_get_entity_detail(_EntityType.LOCATION)
-                elif command == _Command.CREATE_LOCATION:
-                    self._handle_create_entity(_EntityType.LOCATION)
-                elif command == _Command.FIND_LOCATION:
-                    self._handle_find_entity(_EntityType.LOCATION)
-                elif command == _Command.MODIFY_LOCATION:
-                    self._handle_modify_entity(_EntityType.LOCATION)
-                elif command == _Command.GET_TRAVELER_DETAIL:
-                    self._handle_get_entity_detail(_EntityType.TRAVELER)
-                elif command == _Command.CREATE_TRAVELER:
-                    self._handle_create_entity(_EntityType.TRAVELER)
-                elif command == _Command.FIND_TRAVELER:
-                    self._handle_find_entity(_EntityType.TRAVELER)
-                elif command == _Command.MODIFY_TRAVELER:
-                    self._handle_modify_entity(_EntityType.TRAVELER)
-                elif command == _Command.GET_EVENT_DETAIL:
-                    self._handle_get_entity_detail(_EntityType.EVENT)
-                elif command == _Command.CREATE_EVENT:
-                    self._handle_create_entity(_EntityType.EVENT)
-                elif command == _Command.FIND_EVENT:
-                    self._handle_find_entity(_EntityType.EVENT)
-                elif command == _Command.MODIFY_EVENT:
-                    self._handle_modify_entity(_EntityType.EVENT)
+                elif command == _Command.GET_ENTITY_DETAIL:
+                    self._handle_get_entity_detail()
+                elif command == _Command.CREATE_ENTITY:
+                    self._handle_create_entity(self._input_entity_type())
+                elif command == _Command.FIND_ENTITY:
+                    self._handle_find_entity(self._input_entity_type())
+                elif command == _Command.MODIFY_ENTITY:
+                    self._handle_modify_entity()
                 elif command == _Command.TRANSLATE_TIME:
                     time = float(input("Input Raw Time: "))
                     year, month, day, hour, minute = TimeHelper.convert_time_to_ymdhm(time)
@@ -200,8 +172,8 @@ class ToolThing:
         mm_portion = float(input("      mm=") or 0) if mm_conversion else 0
         return km_portion + self._unit_scale * mm_portion
 
-    def _handle_get_entity_detail(self, entity_type: _EntityType) -> None:
-        entity = self._gateway.get_entity(entity_type.value, self.current_id)
+    def _handle_get_entity_detail(self) -> None:
+        entity = self._gateway.get_entity(self.current_entity_type.value, self.current_id)
         print(dumps(entity, indent=2))
         self._current_id = entity["id"]
 
@@ -301,8 +273,9 @@ class ToolThing:
         choice = int(input("Select number: "))
         self._current_id = entity_name_and_ids[choice][1]
 
-    def _handle_modify_entity(self, entity_type: _EntityType) -> None:
+    def _handle_modify_entity(self) -> None:
         entity_id = self.current_id
+        entity_type = self.current_entity_type
         patches = []
         patch_operation_choices = ", ".join([f"{op.display_text}={op.value}" for op in sorted(_PatchOp, key=lambda e: e.value)])
         while True:
@@ -350,7 +323,7 @@ class ToolThing:
         print(message)
 
     def _handle_calculate_age(self) -> None:
-        if self._current_id is None or self.current_event_type is not _EntityType.TRAVELER:
+        if self._current_id is None or self.current_entity_type is not _EntityType.TRAVELER:
             print("[ERROR] A traveler id must be stored currently, aborting.")
             return
         traveler = self._gateway.get_entity(_EntityType.TRAVELER.value, self._current_id)
@@ -371,15 +344,22 @@ class ToolThing:
 
     def _handle_get_timeline(self) -> None:
         valid_types = {_EntityType.LOCATION, _EntityType.TRAVELER}
-        if self.current_event_type not in valid_types:
+        if self.current_entity_type not in valid_types:
             raise ValueError(f"Can only get timeline for: {', '.join([t.value for t in valid_types])}")
-        timeline = self._gateway.get_timeline(self.current_event_type.value, self.current_id)
+        timeline = self._gateway.get_timeline(self.current_entity_type.value, self.current_id)
         for timeline_item in timeline:
             if type(timeline_item) is dict:
                 print(f"- Traveled ({timeline_item['movement_type']}) to {timeline_item['position']}")
             else:
                 raise NotImplementedError("Printing associated events is not yet handled")
 
+    @staticmethod
+    def _input_entity_type() -> _EntityType:
+        choices = {choice_num + 1: entity_type for choice_num, entity_type in enumerate(_EntityType)}
+        print("Select from the following entity types:")
+        for choice_num, entity_type in choices.items():
+            print(f" - {choice_num} -> {entity_type.value}")
+        return choices[int(input(f"Enter entity type: "))]
 
 
 def _main():
