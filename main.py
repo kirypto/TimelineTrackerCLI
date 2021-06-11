@@ -9,6 +9,7 @@ from timeline_tracker_gateway import TimelineTrackerGateway
 
 T = TypeVar("T")
 
+
 class _Command(Enum):
     # Location
     CREATE_LOCATION = 3
@@ -31,6 +32,7 @@ class _Command(Enum):
     SET_CURRENT_ID = 13
     TRANSLATE_TIME = 16
     CALCULATE_AGE = 15
+    GET_TIMELINE = 17
 
     @property
     def display_text(self) -> str:
@@ -108,6 +110,10 @@ class ToolThing:
             raise ValueError("No id is set")
         return self._current_id
 
+    @property
+    def current_event_type(self) -> _EntityType:
+        return _EntityType(self.current_id.split("-")[0])
+
     def __init__(self, gateway: TimelineTrackerGateway, unit_scale: float) -> None:
         self._gateway = gateway
         self._current_id = None
@@ -154,6 +160,8 @@ class ToolThing:
                     print(f"{year}y, {month}m, {day}d, {hour}h, {minute}m")
                 elif command == _Command.CALCULATE_AGE:
                     self._handle_calculate_age()
+                elif command == _Command.GET_TIMELINE:
+                    self._handle_get_timeline()
                 else:
                     print(f"ERROR: Unhandled command '{command}'")
             except Exception as e:
@@ -342,7 +350,7 @@ class ToolThing:
         print(message)
 
     def _handle_calculate_age(self) -> None:
-        if self._current_id is None or not self._current_id.startswith("traveler"):
+        if self._current_id is None or self.current_event_type is not _EntityType.TRAVELER:
             print("[ERROR] A traveler id must be stored currently, aborting.")
             return
         traveler = self._gateway.get_entity(_EntityType.TRAVELER.value, self._current_id)
@@ -360,6 +368,18 @@ class ToolThing:
         name: str = traveler['name']
         print(f"{name}'{'s' if not name.endswith('s') else ''} age is "
               f"{years} years, {months} months, {days} days, {hours} hours, and {minutes} minutes.")
+
+    def _handle_get_timeline(self) -> None:
+        valid_types = {_EntityType.LOCATION, _EntityType.TRAVELER}
+        if self.current_event_type not in valid_types:
+            raise ValueError(f"Can only get timeline for: {', '.join([t.value for t in valid_types])}")
+        timeline = self._gateway.get_timeline(self.current_event_type.value, self.current_id)
+        for timeline_item in timeline:
+            if type(timeline_item) is dict:
+                print(f"- Traveled ({timeline_item['movement_type']}) to {timeline_item['position']}")
+            else:
+                raise NotImplementedError("Printing associated events is not yet handled")
+
 
 
 def _main():

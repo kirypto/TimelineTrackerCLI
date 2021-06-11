@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Union
 
 import requests
 
@@ -39,4 +39,14 @@ class TimelineTrackerGateway:
         response = requests.get(url)
         if response.status_code != HTTPStatus.OK:
             raise RuntimeError(f"Failed to get entities: {response.text}")
+        return response.json()
+
+    def get_timeline(self, resource: str, entity_id: str, **filter_kwargs: Dict[str, str]) -> List[Union[str, dict]]:
+        url = f"{self._url}/api/{resource}/{entity_id}/timeline"
+        if filter_kwargs:
+            url += "?"
+            url += "&".join([f"{key}={val}" for key, val in filter_kwargs.items()])
+        response = requests.get(url)
+        if response.status_code != HTTPStatus.OK:
+            raise RuntimeError(f"Failed to get timeline: {response.text}")
         return response.json()
