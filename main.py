@@ -347,6 +347,8 @@ class ToolThing:
         if self.current_entity_type not in valid_types:
             raise ValueError(f"Can only get timeline for: {', '.join([t.value for t in valid_types])}")
         timeline = self._gateway.get_timeline(self.current_entity_type.value, self.current_id)
+        if not timeline:
+            print("  <Timeline is empty>")
         for timeline_item in timeline:
             if type(timeline_item) is dict:
                 print(f"- Traveled ({timeline_item['movement_type']}) to {timeline_item['position']}")
