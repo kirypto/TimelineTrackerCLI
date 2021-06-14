@@ -1,11 +1,12 @@
+import sys
 from enum import Enum
-from json import dumps
-from typing import List, Dict, NoReturn, Optional, Any, Tuple, Type, TypeVar
-from shutil import get_terminal_size
+from json import dumps, loads
 from math import floor
+from pathlib import Path
+from shutil import get_terminal_size
+from typing import List, Dict, NoReturn, Optional, Any, Tuple, Type, TypeVar
 
 from timeline_tracker_gateway import TimelineTrackerGateway
-
 
 T = TypeVar("T")
 
@@ -185,7 +186,7 @@ class ToolThing:
             return
         entity_json: Dict[str, Any] = {
             "name": name,
-            "description": input("- Description: ")
+            "description": input_multi_line("- Description: ")
         }
         if entity_type in {_EntityType.LOCATION, _EntityType.EVENT}:
             entity_json["span"] = {
@@ -288,7 +289,7 @@ class ToolThing:
                 "path": input("Input patch 'path': "),
             }
             if patch_op in [_PatchOp.ADD, _PatchOp.REPLACE, _PatchOp.TEST]:
-                patch["value"] = input("Input patch 'value': ")
+                patch["value"] = input_multi_line("Input patch 'value': ")
             if patch_op in [_PatchOp.MOVE, _PatchOp.COPY]:
                 patch["from"] = input("Input patch 'from': ")
             patches.append(patch)
@@ -312,7 +313,7 @@ class ToolThing:
         index = 0
         message = ""
         for _ in range(len(commands_sorted) // num_cols + 1):
-            for i in range(num_cols):
+            for i in range(num_cols - 1):
                 if index >= len(commands_sorted):
                     break
                 command = commands_sorted[index]
@@ -364,14 +365,23 @@ class ToolThing:
         return choices[int(input(f"Enter entity type: "))]
 
 
-def _main():
-    # noinspection HttpUrlsUsage
-    url = "http://172.16.1.101:1337"
+def input_multi_line(prompt: str) -> str:
+    result = input(prompt)
+    while result.endswith("\\"):
+        result = result[:-1] + "\n" + input("↪ ")
+    return result
+
+
+def _main(*, url: str) -> NoReturn:
     gateway = TimelineTrackerGateway(url)
 
     tool = ToolThing(gateway, 15.79)
     tool.main_loop()
+    exit()
 
 
 if __name__ == '__main__':
-    _main()
+    if len(sys.argv) < 2:
+        raise ValueError("No configuration file provided")
+    config = loads(Path(sys.argv[1]).read_text())
+    _main(**config)
