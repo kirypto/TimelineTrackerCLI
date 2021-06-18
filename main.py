@@ -248,7 +248,7 @@ class ToolThing:
         filters = {
             "nameHas": input("- Name has: ") or None,
         }
-        if input("Enter additional filters? ") == "y":
+        if not filters["nameHas"] or input("Enter additional filters? ") == "y":
             filters.update({
                 "taggedAll": input("- Tagged all: ") or None,
                 "taggedAny": input("- Tagged any: ") or None,
