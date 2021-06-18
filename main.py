@@ -110,9 +110,9 @@ class ToolThing:
 
     def main_loop(self) -> NoReturn:
         while True:
+            self._print_header()
+            command = _Command(int(input("Input command: ")))
             try:
-                self._print_header()
-                command = _Command(int(input("Input command: ")))
                 if command == _Command.EXIT:
                     exit()
                 elif command == _Command.CHANGE_UNIT_SCALE:
@@ -139,6 +139,8 @@ class ToolThing:
                     print(f"ERROR: Unhandled command '{command}'")
             except Exception as e:
                 print(f"ERROR: {e}")
+            except KeyboardInterrupt:
+                print("\n !! Keyboard interrupt, returning to command entry. (ctrl+c again will exit)")
 
     @staticmethod
     def _input_list(name: str, item_type: Type[T], *, indent: int = 0, enforce_non_empty: bool = False) -> List[T]:
