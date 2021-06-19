@@ -4,7 +4,7 @@ from json import dumps, loads
 from math import floor
 from pathlib import Path
 from shutil import get_terminal_size
-from typing import List, Dict, NoReturn, Optional, Any, Tuple, Type, TypeVar
+from typing import List, Dict, NoReturn, Optional, Any, Tuple, Type, TypeVar, Union
 
 from timeline_tracker_gateway import TimelineTrackerGateway
 
@@ -367,10 +367,16 @@ class ToolThing:
         return choices[int(input(f"Enter entity type: "))]
 
 
-def input_multi_line(prompt: str) -> str:
+def input_multi_line(prompt: str) -> Union[str, dict]:
     result = input(prompt)
+    convert_to_json = result == "json\\"
+    result = result.removeprefix("json")
+    if convert_to_json:
+        print("    JSON mode specified")
     while result.endswith("\\"):
         result = result[:-1] + "\n" + input("↪ ")
+    if convert_to_json:
+        result = loads(result)
     return result
 
 
