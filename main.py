@@ -116,7 +116,8 @@ class ToolThing:
                 if command == _Command.EXIT:
                     exit()
                 elif command == _Command.CHANGE_UNIT_SCALE:
-                    self._unit_scale = float(input("Input new unit scale: "))
+                    scale = input("Input new unit scale: ")
+                    self._unit_scale = float(scale) if scale else None
                 elif command == _Command.SET_CURRENT_ID:
                     self._current_id = input("Input an id: ")
                 elif command == _Command.GET_ENTITY_DETAIL:
@@ -171,9 +172,13 @@ class ToolThing:
 
     def _input_spacial_position(self, prompt: str, *, mm_conversion: bool = False) -> float:
         print(prompt)
+        mm_conversion &= self._unit_scale is not None
         km_portion = float(input("      km=") or 0)
         mm_portion = float(input("      mm=") or 0) if mm_conversion else 0
-        return km_portion + self._unit_scale * mm_portion
+        result = km_portion
+        if mm_conversion:
+            result += self._unit_scale * mm_portion
+        return result
 
     def _handle_get_entity_detail(self) -> None:
         entity = self._gateway.get_entity(self.current_entity_type.value, self.current_id)
@@ -305,7 +310,8 @@ class ToolThing:
     def _print_header(self) -> None:
         width, _ = get_terminal_size((100, 1))
         print("".join("_" for _ in range(0, width)))
-        print(f"  Current Id: {self._current_id}".ljust(width - 30) + f"Unit scale: 1mm = {self._unit_scale}km  ".rjust(30))
+        scale = f"1mm = {self._unit_scale}km" if self._unit_scale is not None else "N/A"
+        print(f"  Current Id: {self._current_id}".ljust(width - 30) + f"Unit scale: {scale}  ".rjust(30))
         print("Available Commands:")
         print(f"{_Command.EXIT.value}.  {_Command.EXIT.display_text}")
         commands_sorted = sorted(filter(lambda c: c != _Command.EXIT, _Command), key=lambda c: c.value)
