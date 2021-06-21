@@ -1,9 +1,9 @@
 from enum import Enum
 from json import loads
 from math import floor
-from typing import Tuple, Union, Type, List
+from typing import Tuple, Union, Type, List, TypeVar
 
-from main import T
+T = TypeVar("T")
 
 
 class TimeHelper:
