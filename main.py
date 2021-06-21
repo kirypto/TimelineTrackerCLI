@@ -96,6 +96,30 @@ class ToolThing:
             except KeyboardInterrupt:
                 print("\n !! Keyboard interrupt, returning to command entry. (ctrl+c again will exit)")
 
+    def _print_header(self) -> None:
+        width, _ = get_terminal_size((100, 1))
+        print("".join("_" for _ in range(0, width)))
+        scale = f"1mm = {self._unit_scale}km" if self._unit_scale is not None else "N/A"
+        print(f"  Current Id: {self._current_id}".ljust(width - 30) + f"Unit scale: {scale}  ".rjust(30))
+        print("Available Commands:")
+        print(f"{_Command.EXIT.value}.  {_Command.EXIT.display_text}")
+        commands_sorted = sorted(filter(lambda c: c != _Command.EXIT, _Command), key=lambda c: c.value)
+
+        col_width = 24
+        num_cols = width // col_width
+        index = 0
+        message = ""
+        for _ in range(len(commands_sorted) // num_cols + 1):
+            for i in range(num_cols - 1):
+                if index >= len(commands_sorted):
+                    break
+                command = commands_sorted[index]
+                index += 1
+                message += f"{command.value}. ".ljust(4)
+                message += f"{command.display_text}".ljust(col_width)
+            message += "\n"
+        print(message)
+
     @staticmethod
     def _input_list(name: str, item_type: Type[T], *, indent: int = 0, enforce_non_empty: bool = False) -> List[T]:
         print(f"{''.ljust(indent)}- {name} (leave blank and press enter to finish):")
@@ -259,30 +283,6 @@ class ToolThing:
 
         modified_entity = self._gateway.patch_entity(entity_type.value, entity_id, patches)
         print(dumps(modified_entity, indent=2))
-
-    def _print_header(self) -> None:
-        width, _ = get_terminal_size((100, 1))
-        print("".join("_" for _ in range(0, width)))
-        scale = f"1mm = {self._unit_scale}km" if self._unit_scale is not None else "N/A"
-        print(f"  Current Id: {self._current_id}".ljust(width - 30) + f"Unit scale: {scale}  ".rjust(30))
-        print("Available Commands:")
-        print(f"{_Command.EXIT.value}.  {_Command.EXIT.display_text}")
-        commands_sorted = sorted(filter(lambda c: c != _Command.EXIT, _Command), key=lambda c: c.value)
-
-        col_width = 24
-        num_cols = width // col_width
-        index = 0
-        message = ""
-        for _ in range(len(commands_sorted) // num_cols + 1):
-            for i in range(num_cols - 1):
-                if index >= len(commands_sorted):
-                    break
-                command = commands_sorted[index]
-                index += 1
-                message += f"{command.value}. ".ljust(4)
-                message += f"{command.display_text}".ljust(col_width)
-            message += "\n"
-        print(message)
 
     def _handle_calculate_age(self) -> None:
         if self._current_id is None or self.current_entity_type is not EntityType.TRAVELER:
