@@ -3,9 +3,9 @@ from enum import Enum
 from json import dumps, loads
 from pathlib import Path
 from shutil import get_terminal_size
-from typing import List, Dict, NoReturn, Optional, Any, Type, TypeVar, Union
+from typing import List, Dict, NoReturn, Optional, Any, Type, TypeVar
 
-from util import TimeHelper
+from util import TimeHelper, input_multi_line, EntityType, input_entity_type
 from timeline_tracker_gateway import TimelineTrackerGateway
 
 T = TypeVar("T")
@@ -26,12 +26,6 @@ class _Command(Enum):
     @property
     def display_text(self) -> str:
         return self.name.replace("_", " ").title()
-
-
-class _EntityType(Enum):
-    LOCATION = "location"
-    TRAVELER = "traveler"
-    EVENT = "event"
 
 
 class _PatchOp(Enum):
@@ -59,8 +53,8 @@ class ToolThing:
         return self._current_id
 
     @property
-    def current_entity_type(self) -> _EntityType:
-        return _EntityType(self.current_id.split("-")[0])
+    def current_entity_type(self) -> EntityType:
+        return EntityType(self.current_id.split("-")[0])
 
     def __init__(self, gateway: TimelineTrackerGateway, unit_scale: float) -> None:
         self._gateway = gateway
@@ -82,9 +76,9 @@ class ToolThing:
                 elif command == _Command.GET_ENTITY_DETAIL:
                     self._handle_get_entity_detail()
                 elif command == _Command.CREATE_ENTITY:
-                    self._handle_create_entity(self._input_entity_type())
+                    self._handle_create_entity(input_entity_type())
                 elif command == _Command.FIND_ENTITY:
-                    self._handle_find_entity(self._input_entity_type())
+                    self._handle_find_entity(input_entity_type())
                 elif command == _Command.MODIFY_ENTITY:
                     self._handle_modify_entity()
                 elif command == _Command.TRANSLATE_TIME:
@@ -144,7 +138,7 @@ class ToolThing:
         print(dumps(entity, indent=2))
         self._current_id = entity["id"]
 
-    def _handle_create_entity(self, entity_type: _EntityType) -> None:
+    def _handle_create_entity(self, entity_type: EntityType) -> None:
         print(f"Creating {entity_type.value}...")
         name = input("- Name: ")
         if not name:
@@ -154,7 +148,7 @@ class ToolThing:
             "name": name,
             "description": input_multi_line("- Description: ")
         }
-        if entity_type in {_EntityType.LOCATION, _EntityType.EVENT}:
+        if entity_type in {EntityType.LOCATION, EntityType.EVENT}:
             entity_json["span"] = {
                 "latitude": {
                     "low": self._input_spacial_position("- Span:\n  - Latitude:\n    - Low: ", mm_conversion=True),
@@ -174,7 +168,7 @@ class ToolThing:
                 },
                 "reality": self._input_list("Realities", int, indent=2, enforce_non_empty=True),
             }
-        if entity_type == _EntityType.TRAVELER:
+        if entity_type == EntityType.TRAVELER:
             print("- Journey: ")
             entity_json["journey"] = []
             movement_types = {
@@ -196,7 +190,7 @@ class ToolThing:
                     "movement_type": movement_types[movement_type_choice],
                     "position": position,
                 })
-        if entity_type == _EntityType.EVENT:
+        if entity_type == EntityType.EVENT:
             entity_json["affected_locations"] = self._input_list("Affected Locations", str)
             entity_json["affected_travelers"] = self._input_list("Affected Travelers", str)
 
@@ -207,7 +201,7 @@ class ToolThing:
         print(dumps(entity, indent=2))
         self._current_id = entity["id"]
 
-    def _handle_find_entity(self, entity_type: _EntityType) -> None:
+    def _handle_find_entity(self, entity_type: EntityType) -> None:
         print("Enter query params:")
         filters = {
             "nameHas": input("- Name has: ") or None,
@@ -291,10 +285,10 @@ class ToolThing:
         print(message)
 
     def _handle_calculate_age(self) -> None:
-        if self._current_id is None or self.current_entity_type is not _EntityType.TRAVELER:
+        if self._current_id is None or self.current_entity_type is not EntityType.TRAVELER:
             print("[ERROR] A traveler id must be stored currently, aborting.")
             return
-        traveler = self._gateway.get_entity(_EntityType.TRAVELER.value, self._current_id)
+        traveler = self._gateway.get_entity(EntityType.TRAVELER.value, self._current_id)
         age = 0
         last_timestamp = None
         for positional_move in traveler["journey"]:
@@ -311,7 +305,7 @@ class ToolThing:
               f"{years} years, {months} months, {days} days, {hours} hours, and {minutes} minutes.")
 
     def _handle_get_timeline(self) -> None:
-        valid_types = {_EntityType.LOCATION, _EntityType.TRAVELER}
+        valid_types = {EntityType.LOCATION, EntityType.TRAVELER}
         if self.current_entity_type not in valid_types:
             raise ValueError(f"Can only get timeline for: {', '.join([t.value for t in valid_types])}")
         timeline = self._gateway.get_timeline(self.current_entity_type.value, self.current_id)
@@ -322,27 +316,6 @@ class ToolThing:
                 print(f"- Traveled ({timeline_item['movement_type']}) to {timeline_item['position']}")
             else:
                 raise NotImplementedError("Printing associated events is not yet handled")
-
-    @staticmethod
-    def _input_entity_type() -> _EntityType:
-        choices = {choice_num + 1: entity_type for choice_num, entity_type in enumerate(_EntityType)}
-        print("Select from the following entity types:")
-        for choice_num, entity_type in choices.items():
-            print(f" - {choice_num} -> {entity_type.value}")
-        return choices[int(input(f"Enter entity type: "))]
-
-
-def input_multi_line(prompt: str) -> Union[str, dict]:
-    result = input(prompt)
-    convert_to_json = result == "json\\"
-    result = result.removeprefix("json")
-    if convert_to_json:
-        print("    JSON mode specified")
-    while result.endswith("\\"):
-        result = result[:-1] + "\n" + input("↪ ")
-    if convert_to_json:
-        result = loads(result)
-    return result
 
 
 def _main(*, url: str) -> NoReturn:

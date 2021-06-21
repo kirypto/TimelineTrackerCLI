@@ -1,5 +1,7 @@
+from enum import Enum
+from json import loads
 from math import floor
-from typing import Tuple
+from typing import Tuple, Union
 
 
 class TimeHelper:
@@ -41,3 +43,30 @@ class TimeHelper:
         # if month_portion != 0:
         #     raise NotImplementedError("Month calculation not yet supported")
         return TimeHelper.convert_time_from_ymdhm(year_portion, 0, day_portion, hour_portion)
+
+
+class EntityType(Enum):
+    LOCATION = "location"
+    TRAVELER = "traveler"
+    EVENT = "event"
+
+
+def input_entity_type() -> EntityType:
+    choices = {choice_num + 1: entity_type for choice_num, entity_type in enumerate(EntityType)}
+    print("Select from the following entity types:")
+    for choice_num, entity_type in choices.items():
+        print(f" - {choice_num} -> {entity_type.value}")
+    return choices[int(input(f"Enter entity type: "))]
+
+
+def input_multi_line(prompt: str) -> Union[str, dict]:
+    result = input(prompt)
+    convert_to_json = result == "json\\"
+    result = result.removeprefix("json")
+    if convert_to_json:
+        print("    JSON mode specified")
+    while result.endswith("\\"):
+        result = result[:-1] + "\n" + input("↪ ")
+    if convert_to_json:
+        result = loads(result)
+    return result
