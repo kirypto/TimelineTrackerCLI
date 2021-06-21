@@ -3,9 +3,9 @@ from enum import Enum
 from json import dumps, loads
 from pathlib import Path
 from shutil import get_terminal_size
-from typing import List, Dict, NoReturn, Optional, Any, Type, TypeVar
+from typing import Dict, NoReturn, Optional, Any, TypeVar
 
-from util import TimeHelper, input_multi_line, EntityType, input_entity_type
+from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list
 from timeline_tracker_gateway import TimelineTrackerGateway
 
 T = TypeVar("T")
@@ -121,21 +121,6 @@ class ToolThing:
         print(message)
 
     @staticmethod
-    def _input_list(name: str, item_type: Type[T], *, indent: int = 0, enforce_non_empty: bool = False) -> List[T]:
-        print(f"{''.ljust(indent)}- {name} (leave blank and press enter to finish):")
-        tags = []
-        while True:
-            tag = input(f"{''.ljust(indent)}  - ").strip()
-            if not tag:
-                if not tags and enforce_non_empty:
-                    print(f"{''.ljust(indent)}  !! {name} list cannot be empty")
-                    continue
-                else:
-                    break
-            tags.append(item_type(tag))
-        return tags
-
-    @staticmethod
     def _input_metadata() -> Dict[str, str]:
         print("- Metadata (leave blank and press enter to finish):")
         metadata = {}
@@ -190,7 +175,7 @@ class ToolThing:
                     "low": TimeHelper.input_ymdh("  - Continuum:\n    - Low: "),
                     "high": TimeHelper.input_ymdh("    - High: "),
                 },
-                "reality": self._input_list("Realities", int, indent=2, enforce_non_empty=True),
+                "reality": input_list("Realities", int, indent=2, enforce_non_empty=True),
             }
         if entity_type == EntityType.TRAVELER:
             print("- Journey: ")
@@ -215,10 +200,10 @@ class ToolThing:
                     "position": position,
                 })
         if entity_type == EntityType.EVENT:
-            entity_json["affected_locations"] = self._input_list("Affected Locations", str)
-            entity_json["affected_travelers"] = self._input_list("Affected Travelers", str)
+            entity_json["affected_locations"] = input_list("Affected Locations", str)
+            entity_json["affected_travelers"] = input_list("Affected Travelers", str)
 
-        entity_json["tags"] = self._input_list("Tags", str)
+        entity_json["tags"] = input_list("Tags", str)
         entity_json["metadata"] = self._input_metadata()
 
         entity = self._gateway.post_entity(entity_type.value, entity_json)

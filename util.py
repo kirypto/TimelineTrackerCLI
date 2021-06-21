@@ -1,7 +1,9 @@
 from enum import Enum
 from json import loads
 from math import floor
-from typing import Tuple, Union
+from typing import Tuple, Union, Type, List
+
+from main import T
 
 
 class TimeHelper:
@@ -70,3 +72,18 @@ def input_multi_line(prompt: str) -> Union[str, dict]:
     if convert_to_json:
         result = loads(result)
     return result
+
+
+def input_list(name: str, item_type: Type[T], *, indent: int = 0, enforce_non_empty: bool = False) -> List[T]:
+    print(f"{''.ljust(indent)}- {name} (leave blank and press enter to finish):")
+    tags = []
+    while True:
+        tag = input(f"{''.ljust(indent)}  - ").strip()
+        if not tag:
+            if not tags and enforce_non_empty:
+                print(f"{''.ljust(indent)}  !! {name} list cannot be empty")
+                continue
+            else:
+                break
+        tags.append(item_type(tag))
+    return tags
