@@ -289,10 +289,13 @@ class ToolThing:
                 raise NotImplementedError("Printing associated events is not yet handled")
 
 
-def _main(*, url: str) -> NoReturn:
+def _main(*, url: Optional[str], mm_conversion: Optional[float]) -> NoReturn:
+    for config_val, expected_type in [(url, str), (mm_conversion, float)]:
+        if config_val is not None and type(config_val) is not expected_type:
+            raise ValueError(f"Invalid configuration, needed {expected_type}, was given {config_val}")
     gateway = TimelineTrackerGateway(url)
 
-    tool = ToolThing(gateway, 15.79)
+    tool = ToolThing(gateway, mm_conversion)
     tool.main_loop()
     exit()
 
