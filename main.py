@@ -3,12 +3,10 @@ from enum import Enum
 from json import dumps, loads
 from pathlib import Path
 from shutil import get_terminal_size
-from typing import Dict, NoReturn, Optional, Any, TypeVar
+from typing import Dict, NoReturn, Optional, Any
 
-from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list
 from timeline_tracker_gateway import TimelineTrackerGateway
-
-T = TypeVar("T")
+from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict
 
 
 class _Command(Enum):
@@ -120,18 +118,6 @@ class ToolThing:
             message += "\n"
         print(message)
 
-    @staticmethod
-    def _input_metadata() -> Dict[str, str]:
-        print("- Metadata (leave blank and press enter to finish):")
-        metadata = {}
-        while True:
-            key = input("  - Key: ").strip()
-            if not key:
-                break
-            val = input("  - Value: ").strip()
-            metadata[key] = val
-        return metadata
-
     def _input_spacial_position(self, prompt: str, *, mm_conversion: bool = False) -> float:
         print(prompt)
         mm_conversion &= self._unit_scale is not None
@@ -204,7 +190,7 @@ class ToolThing:
             entity_json["affected_travelers"] = input_list("Affected Travelers", str)
 
         entity_json["tags"] = input_list("Tags", str)
-        entity_json["metadata"] = self._input_metadata()
+        entity_json["metadata"] = input_dict("Metadata", str, str)
 
         entity = self._gateway.post_entity(entity_type.value, entity_json)
         print(dumps(entity, indent=2))
