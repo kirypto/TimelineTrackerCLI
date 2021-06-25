@@ -3,7 +3,7 @@ from enum import Enum
 from json import dumps, loads
 from pathlib import Path
 from shutil import get_terminal_size
-from typing import Dict, NoReturn, Optional, Any
+from typing import Dict, NoReturn, Optional, Any, Set
 
 from timeline_tracker_gateway import TimelineTrackerGateway
 from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict
@@ -41,14 +41,28 @@ class _PatchOp(Enum):
 
 class ToolThing:
     _gateway: TimelineTrackerGateway
-    _current_id: Optional[str]
-    _unit_scale: float
+    _current_ids: Set[str]
+    _unit_scale: Optional[float]
 
     @property
     def current_id(self) -> str:
-        if self._current_id is None:
+        if not self._current_ids:
             raise ValueError("No id is set")
-        return self._current_id
+        elif len(self._current_ids) > 1:
+            raise ValueError("More than 1 id is set")
+        return list(self._current_ids)[0]
+
+    @current_id.setter
+    def current_id(self, id_: str) -> None:
+        self._current_ids = {id_}
+
+    @property
+    def current_party(self) -> Set[str]:
+        return self._current_ids
+    
+    @current_party.setter
+    def current_party(self, value: Set[str]) -> None:
+        self._current_ids = value
 
     @property
     def current_entity_type(self) -> EntityType:
@@ -56,7 +70,7 @@ class ToolThing:
 
     def __init__(self, gateway: TimelineTrackerGateway, unit_scale: float) -> None:
         self._gateway = gateway
-        self._current_id = None
+        self._current_ids = set()
         self._unit_scale = unit_scale
 
     def main_loop(self) -> NoReturn:
@@ -70,7 +84,7 @@ class ToolThing:
                     scale = input("Input new unit scale: ")
                     self._unit_scale = float(scale) if scale else None
                 elif command == _Command.SET_CURRENT_ID:
-                    self._current_id = input("Input an id: ")
+                    self.current_id = input("Input an id: ")
                 elif command == _Command.GET_ENTITY_DETAIL:
                     self._handle_get_entity_detail()
                 elif command == _Command.CREATE_ENTITY:
@@ -98,7 +112,12 @@ class ToolThing:
         width, _ = get_terminal_size((100, 1))
         print("".join("_" for _ in range(0, width)))
         scale = f"1mm = {self._unit_scale}km" if self._unit_scale is not None else "N/A"
-        print(f"  Current Id: {self._current_id}".ljust(width - 30) + f"Unit scale: {scale}  ".rjust(30))
+        try:
+            print(f"  Current Id: {self.current_id}".ljust(width - 30) + f"Unit scale: {scale}  ".rjust(30))
+        except ValueError:
+            print(f"  Current Party: ".ljust(width - 30) + f"Unit scale: {scale}  ".rjust(30))
+            for id_ in self.current_party:
+                print(f"    - {id_}")
         print("Available Commands:")
         print(f"{_Command.EXIT.value}.  {_Command.EXIT.display_text}")
         commands_sorted = sorted(filter(lambda c: c != _Command.EXIT, _Command), key=lambda c: c.value)
@@ -131,7 +150,6 @@ class ToolThing:
     def _handle_get_entity_detail(self) -> None:
         entity = self._gateway.get_entity(self.current_entity_type.value, self.current_id)
         print(dumps(entity, indent=2))
-        self._current_id = entity["id"]
 
     def _handle_create_entity(self, entity_type: EntityType) -> None:
         print(f"Creating {entity_type.value}...")
@@ -194,7 +212,7 @@ class ToolThing:
 
         entity = self._gateway.post_entity(entity_type.value, entity_json)
         print(dumps(entity, indent=2))
-        self._current_id = entity["id"]
+        self.current_id = entity["id"]
 
     def _handle_find_entity(self, entity_type: EntityType) -> None:
         print("Enter query params:")
@@ -219,15 +237,20 @@ class ToolThing:
             return
         elif len(entity_name_and_ids) == 1:
             entity = entity_name_and_ids[0]
-            print(f"Only one matching {entity_type.value} found, auto selecting: {entity[0]} ({entity[1]})")
-            self._current_id = entity[1]
+            print(f"   Only one matching {entity_type.value} found, auto selecting: {entity[0]} ({entity[1]})")
+            self.current_id = entity[1]
             return
 
-        print(f"Select from the following {entity_type.value}s (the id will be stored)")
+        print(f"Pick 1 or more (comma delimited) from the following {entity_type.value}s (or 'a' for all)")
         for index, (entity_name, entity_id) in enumerate(entity_name_and_ids):
             print(f"{index}. {entity_name} ({entity_id})")
-        choice = int(input("Select number: "))
-        self._current_id = entity_name_and_ids[choice][1]
+        choice_raw = input("Select number: ")
+        if choice_raw == "a":
+            self.current_party = set(map(lambda name_and_id: name_and_id[1], entity_name_and_ids))
+        elif "," in choice_raw:
+            self.current_party = set(map(lambda choice: entity_name_and_ids[int(choice)][1], choice_raw.split(",")))
+        else:
+            self._current_ids = {entity_name_and_ids[int(choice_raw)][1]}
 
     def _handle_modify_entity(self) -> None:
         entity_id = self.current_id
@@ -256,10 +279,9 @@ class ToolThing:
         print(dumps(modified_entity, indent=2))
 
     def _handle_calculate_age(self) -> None:
-        if self._current_id is None or self.current_entity_type is not EntityType.TRAVELER:
-            print("[ERROR] A traveler id must be stored currently, aborting.")
-            return
-        traveler = self._gateway.get_entity(EntityType.TRAVELER.value, self._current_id)
+        if self.current_entity_type is not EntityType.TRAVELER:
+            raise ValueError("[ERROR] A traveler id must be stored currently, aborting.")
+        traveler = self._gateway.get_entity(EntityType.TRAVELER.value, self.current_id)
         age = 0
         last_timestamp = None
         for positional_move in traveler["journey"]:
