@@ -5,6 +5,7 @@ from pathlib import Path
 from shutil import get_terminal_size
 from typing import Dict, NoReturn, Optional, Any, Set
 
+from map import MapView, RectangularCuboid
 from timeline_tracker_gateway import TimelineTrackerGateway
 from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict, get_entity_type
 
@@ -20,6 +21,7 @@ class _Command(Enum):
     CHANGE_UNIT_SCALE = 11
     TRANSLATE_TIME = 12
     CALCULATE_AGE = 13
+    RENDER_MAP = 14
 
     @property
     def display_text(self) -> str:
@@ -97,6 +99,8 @@ class ToolThing:
                     self._handle_calculate_age()
                 elif command == _Command.GET_TIMELINE:
                     self._handle_get_timeline()
+                elif command == _Command.RENDER_MAP:
+                    self._handle_render_map()
                 else:
                     print(f"ERROR: Unhandled command '{command}'")
             except Exception as e:
@@ -122,7 +126,7 @@ class ToolThing:
         num_cols = width // col_width
         index = 0
         message = ""
-        for _ in range(len(commands_sorted) // num_cols + 1):
+        while index < len(commands_sorted):
             for i in range(num_cols - 1):
                 if index >= len(commands_sorted):
                     break
@@ -305,6 +309,21 @@ class ToolThing:
                 print(f"- Traveled ({timeline_item['movement_type']}) to {timeline_item['position']}")
             else:
                 raise NotImplementedError("Printing associated events is not yet handled")
+
+    def _handle_render_map(self) -> None:
+        map_view = MapView()
+        for entity_id in self.current_ids:
+            entity_type = get_entity_type(entity_id)
+            entity = self._gateway.get_entity(entity_type.value, entity_id)
+            if entity_type == EntityType.LOCATION:
+                span = entity["span"]
+                span_rectangle = RectangularCuboid(
+                    span["latitude"]["low"], span["longitude"]["low"], span["altitude"]["low"],
+                    span["latitude"]["high"], span["longitude"]["high"], span["altitude"]["high"])
+                map_view.draw(span_rectangle, "green")
+            else:
+                raise NotImplementedError(f"Rendering entities of type {entity_type} is not yet supported")
+        map_view.render()
 
 
 def _main(*, url: Optional[str], mm_conversion: Optional[float]) -> NoReturn:

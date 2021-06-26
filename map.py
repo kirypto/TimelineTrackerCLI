@@ -72,7 +72,7 @@ class MapView:
     _axes: Axes3D
 
     def __init__(self) -> None:
-        self._figure = pyplot.figure()
+        self._figure = pyplot.figure(dpi=300)
         self._axes: Axes3D = self._figure.add_subplot(projection="3d")
         self._axes.set_xlabel("latitude")
         self._axes.set_ylabel("longitude")
