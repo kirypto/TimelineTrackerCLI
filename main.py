@@ -52,16 +52,12 @@ class ToolThing:
             raise ValueError("More than 1 id is set")
         return list(self._current_ids)[0]
 
-    @current_id.setter
-    def current_id(self, id_: str) -> None:
-        self._current_ids = {id_}
-
     @property
-    def current_party(self) -> Set[str]:
+    def current_ids(self) -> Set[str]:
         return self._current_ids
     
-    @current_party.setter
-    def current_party(self, value: Set[str]) -> None:
+    @current_ids.setter
+    def current_ids(self, value: Set[str]) -> None:
         self._current_ids = value
 
     @property
@@ -84,7 +80,7 @@ class ToolThing:
                     scale = input("Input new unit scale: ")
                     self._unit_scale = float(scale) if scale else None
                 elif command == _Command.SET_CURRENT_ID:
-                    self.current_id = input("Input an id: ")
+                    self.current_ids = {input("Input an id: ")}
                 elif command == _Command.GET_ENTITY_DETAIL:
                     self._handle_get_entity_detail()
                 elif command == _Command.CREATE_ENTITY:
@@ -112,11 +108,11 @@ class ToolThing:
         width, _ = get_terminal_size((100, 1))
         print("".join("_" for _ in range(0, width)))
         scale = f"1mm = {self._unit_scale}km" if self._unit_scale is not None else "N/A"
-        try:
+        if len(self.current_ids) == 1:
             print(f"  Current Id: {self.current_id}".ljust(width - 30) + f"Unit scale: {scale}  ".rjust(30))
-        except ValueError:
-            print(f"  Current Party: ".ljust(width - 30) + f"Unit scale: {scale}  ".rjust(30))
-            for id_ in self.current_party:
+        else:
+            print(f"  Current Ids: ".ljust(width - 30) + f"Unit scale: {scale}  ".rjust(30))
+            for id_ in self.current_ids:
                 print(f"    - {id_}")
         print("Available Commands:")
         print(f"{_Command.EXIT.value}.  {_Command.EXIT.display_text}")
@@ -212,7 +208,7 @@ class ToolThing:
 
         entity = self._gateway.post_entity(entity_type.value, entity_json)
         print(dumps(entity, indent=2))
-        self.current_id = entity["id"]
+        self.current_ids = {entity["id"]}
 
     def _handle_find_entity(self, entity_type: EntityType) -> None:
         print("Enter query params:")
@@ -238,7 +234,7 @@ class ToolThing:
         elif len(entity_name_and_ids) == 1:
             entity = entity_name_and_ids[0]
             print(f"   Only one matching {entity_type.value} found, auto selecting: {entity[0]} ({entity[1]})")
-            self.current_id = entity[1]
+            self.current_ids = {entity[1]}
             return
 
         print(f"Pick 1 or more (comma delimited) from the following {entity_type.value}s (or 'a' for all)")
@@ -246,11 +242,11 @@ class ToolThing:
             print(f"{index}. {entity_name} ({entity_id})")
         choice_raw = input("Select number: ")
         if choice_raw == "a":
-            self.current_party = set(map(lambda name_and_id: name_and_id[1], entity_name_and_ids))
+            self.current_ids = set(map(lambda name_and_id: name_and_id[1], entity_name_and_ids))
         elif "," in choice_raw:
-            self.current_party = set(map(lambda choice: entity_name_and_ids[int(choice)][1], choice_raw.split(",")))
+            self.current_ids = set(map(lambda choice: entity_name_and_ids[int(choice)][1], choice_raw.split(",")))
         else:
-            self._current_ids = {entity_name_and_ids[int(choice_raw)][1]}
+            self.current_ids = {entity_name_and_ids[int(choice_raw)][1]}
 
     def _handle_modify_entity(self) -> None:
         entity_id = self.current_id
