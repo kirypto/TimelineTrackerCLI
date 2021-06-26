@@ -6,7 +6,7 @@ from shutil import get_terminal_size
 from typing import Dict, NoReturn, Optional, Any, Set
 
 from timeline_tracker_gateway import TimelineTrackerGateway
-from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict
+from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict, get_entity_type
 
 
 class _Command(Enum):
@@ -62,7 +62,7 @@ class ToolThing:
 
     @property
     def current_entity_type(self) -> EntityType:
-        return EntityType(self.current_id.split("-")[0])
+        return get_entity_type(self.current_id)
 
     def __init__(self, gateway: TimelineTrackerGateway, unit_scale: float) -> None:
         self._gateway = gateway

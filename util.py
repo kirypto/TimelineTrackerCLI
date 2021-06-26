@@ -105,3 +105,7 @@ def input_dict(name: str, key_type: Type[TK], val_type: Type[TV], *, indent: int
         val = input("  - Value: ").strip()
         metadata[key_type(key)] = val_type(val)
     return metadata
+
+
+def get_entity_type(entity_id: str) -> EntityType:
+    return EntityType(entity_id.split("-")[0])
