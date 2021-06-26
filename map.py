@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from math import cos, sin, radians
 from typing import Tuple, List, Optional, Any
 
 from matplotlib import pyplot
@@ -11,6 +12,29 @@ class Drawable(ABC):
     @abstractmethod
     def to_3d_data(self) -> Tuple[List[float], List[float], List[float]]:
         pass
+
+
+class Circle(Drawable):
+    _lat_pos: float
+    _lon_pos: float
+    _alt_pos: float
+    _radius: float
+
+    def __init__(self, lat_pos: float, lon_pos: float, alt_pos: float, radius: float) -> None:
+        self._lat_pos = lat_pos
+        self._lon_pos = lon_pos
+        self._alt_pos = alt_pos
+        self._radius = radius
+
+    def to_3d_data(self) -> Tuple[List[float], List[float], List[float]]:
+        x_values = []
+        y_values = []
+        z_values = []
+        for deg in range(361):
+            x_values.append(self._lat_pos + sin(radians(deg)) * self._radius)
+            y_values.append(self._lon_pos + cos(radians(deg)) * self._radius)
+            z_values.append(self._alt_pos)
+        return x_values, y_values, z_values
 
 
 class RectangularCuboid(Drawable):
@@ -95,7 +119,10 @@ class MapView:
 def _main():
     map_view = MapView()
     map_view.draw(RectangularCuboid(.2, .2, .2, .6, .7, .8), "green")
-    map_view.render()
+    map_view.draw(Circle(0.4, 0.3, 0.5, 0.25), "blue")
+    map_view.render(elevation=60)
+    map_view.render(elevation=80, azimuth=-180)
+    map_view.render(elevation=10, azimuth=-180)
 
 
 if __name__ == '__main__':
