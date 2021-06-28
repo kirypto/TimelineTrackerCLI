@@ -3,7 +3,7 @@ from enum import Enum
 from json import dumps, loads
 from pathlib import Path
 from shutil import get_terminal_size
-from typing import Dict, NoReturn, Optional, Any, Set
+from typing import Dict, NoReturn, Optional, Any, Set, List, Union, Tuple, Iterable
 
 from numpy import average
 
@@ -45,32 +45,35 @@ class _PatchOp(Enum):
 
 class ToolThing:
     _gateway: TimelineTrackerGateway
-    _current_ids: Set[str]
     _unit_scale: Optional[float]
+    __current_ids: List[str]
 
     @property
-    def current_id(self) -> str:
-        if not self._current_ids:
-            raise ValueError("No id is set")
-        elif len(self._current_ids) > 1:
-            raise ValueError("More than 1 id is set")
-        return list(self._current_ids)[0]
+    def focus_id(self) -> str:
+        if not self.__current_ids:
+            raise ValueError("No ids are set")
+        return self.__current_ids[0]
 
+    @property
+    def focus_entity_type(self) -> EntityType:
+        return get_entity_type(self.focus_id)
+    
     @property
     def current_ids(self) -> Set[str]:
-        return self._current_ids
-    
-    @current_ids.setter
-    def current_ids(self, value: Set[str]) -> None:
-        self._current_ids = value
+        return set(self.__current_ids)
 
-    @property
-    def current_entity_type(self) -> EntityType:
-        return get_entity_type(self.current_id)
+    @current_ids.setter
+    def current_ids(self, value: Union[Tuple[str, Iterable[str]], Iterable[str]]) -> None:
+        if type(value) is tuple:
+            value: Tuple[str, Iterable[str]]
+            focus_id, other_ids = value
+            self.__current_ids = [focus_id, *other_ids]
+        else:
+            self.__current_ids = list(value)
 
     def __init__(self, gateway: TimelineTrackerGateway, unit_scale: float) -> None:
         self._gateway = gateway
-        self._current_ids = set()
+        self.__current_ids = []
         self._unit_scale = unit_scale
 
     def main_loop(self) -> NoReturn:
@@ -114,12 +117,19 @@ class ToolThing:
         width, _ = get_terminal_size((100, 1))
         print("".join("_" for _ in range(0, width)))
         scale = f"1mm = {self._unit_scale}km" if self._unit_scale is not None else "N/A"
-        if len(self.current_ids) == 1:
-            print(f"  Current Id: {self.current_id}".ljust(width - 30) + f"Unit scale: {scale}  ".rjust(30))
-        else:
-            print(f"  Current Ids: ".ljust(width - 30) + f"Unit scale: {scale}  ".rjust(30))
-            for id_ in self.current_ids:
-                print(f"    - {id_}")
+        focus_id_text = self.focus_id if len(self.current_ids) > 0 else "N/A"
+        print(f"  Focus Id: {focus_id_text}".ljust(width - 30) + f"Unit scale: {scale}  ".rjust(30))
+        if len(self.current_ids) > 1:
+            print("  Other Ids:", end="")
+            other_ids = list(self.current_ids - {self.focus_id})
+            index = 0
+            while index < len(other_ids):
+                if index % (width // 40) == 0:
+                    print("\n    ", end="")
+                print(other_ids[index], end="    ")
+                index += 1
+            print()
+
         print("Available Commands:")
         print(f"{_Command.EXIT.value}.  {_Command.EXIT.display_text}")
         commands_sorted = sorted(filter(lambda c: c != _Command.EXIT, _Command), key=lambda c: c.value)
@@ -150,7 +160,7 @@ class ToolThing:
         return result
 
     def _handle_get_entity_detail(self) -> None:
-        entity = self._gateway.get_entity(self.current_entity_type.value, self.current_id)
+        entity = self._gateway.get_entity(self.focus_entity_type.value, self.focus_id)
         print(dumps(entity, indent=2))
 
     def _handle_create_entity(self, entity_type: EntityType) -> None:
@@ -217,6 +227,9 @@ class ToolThing:
         self.current_ids = {entity["id"]}
 
     def _handle_find_entity(self, entity_type: EntityType) -> None:
+        add_to_existing = (
+                len(self.current_ids) > 0 and
+                "2" == input("Choose to either:     1. replace existing;     2. add to existing     (default=1): "))
         print("Enter query params:")
         filters = {
             "nameHas": input("- Name has: ") or None,
@@ -240,23 +253,29 @@ class ToolThing:
         elif len(entity_name_and_ids) == 1:
             entity = entity_name_and_ids[0]
             print(f"   Only one matching {entity_type.value} found, auto selecting: {entity[0]} ({entity[1]})")
-            self.current_ids = {entity[1]}
+            self.current_ids = [entity[1], *(self.current_ids if add_to_existing else {})]
             return
 
         print(f"Pick 1 or more (comma delimited) from the following {entity_type.value}s (or 'a' for all)")
         for index, (entity_name, entity_id) in enumerate(entity_name_and_ids):
             print(f"{index}. {entity_name} ({entity_id})")
-        choice_raw = input("Select number: ")
-        if choice_raw == "a":
-            self.current_ids = set(map(lambda name_and_id: name_and_id[1], entity_name_and_ids))
-        elif "," in choice_raw:
-            self.current_ids = set(map(lambda choice: entity_name_and_ids[int(choice)][1], choice_raw.split(",")))
-        else:
-            self.current_ids = {entity_name_and_ids[int(choice_raw)][1]}
+        choices = input("Select number: ").split(",")
+        chosen_ids = []
+        add_all = False
+        for choice in choices:
+            if choice == "a":
+                add_all = True
+                continue
+            chosen_ids.append(entity_name_and_ids[int(choice)][1])
+        if add_all:
+            chosen_ids.extend(set(map(lambda name_and_id: name_and_id[1], entity_name_and_ids)).difference(chosen_ids))
+        if add_to_existing:
+            chosen_ids.extend(self.current_ids.difference(chosen_ids))
+        self.current_ids = chosen_ids
 
     def _handle_modify_entity(self) -> None:
-        entity_id = self.current_id
-        entity_type = self.current_entity_type
+        entity_id = self.focus_id
+        entity_type = self.focus_entity_type
         patches = []
         patch_operation_choices = ", ".join([f"{op.display_text}={op.value}" for op in sorted(_PatchOp, key=lambda e: e.value)])
         while True:
@@ -281,9 +300,9 @@ class ToolThing:
         print(dumps(modified_entity, indent=2))
 
     def _handle_calculate_age(self) -> None:
-        if self.current_entity_type is not EntityType.TRAVELER:
+        if self.focus_entity_type is not EntityType.TRAVELER:
             raise ValueError("[ERROR] A traveler id must be stored currently, aborting.")
-        traveler = self._gateway.get_entity(EntityType.TRAVELER.value, self.current_id)
+        traveler = self._gateway.get_entity(EntityType.TRAVELER.value, self.focus_id)
         age = 0
         last_timestamp = None
         for positional_move in traveler["journey"]:
@@ -301,9 +320,9 @@ class ToolThing:
 
     def _handle_get_timeline(self) -> None:
         valid_types = {EntityType.LOCATION, EntityType.TRAVELER}
-        if self.current_entity_type not in valid_types:
+        if self.focus_entity_type not in valid_types:
             raise ValueError(f"Can only get timeline for: {', '.join([t.value for t in valid_types])}")
-        timeline = self._gateway.get_timeline(self.current_entity_type.value, self.current_id)
+        timeline = self._gateway.get_timeline(self.focus_entity_type.value, self.focus_id)
         if not timeline:
             print("  <Timeline is empty>")
         for timeline_item in timeline:
