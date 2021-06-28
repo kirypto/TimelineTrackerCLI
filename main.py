@@ -5,7 +5,9 @@ from pathlib import Path
 from shutil import get_terminal_size
 from typing import Dict, NoReturn, Optional, Any, Set
 
-from map import MapView, RectangularCuboid
+from numpy import average
+
+from map import MapView, RectangularCuboid, Circle
 from timeline_tracker_gateway import TimelineTrackerGateway
 from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict, get_entity_type
 
@@ -317,13 +319,25 @@ class ToolThing:
             entity = self._gateway.get_entity(entity_type.value, entity_id)
             if entity_type == EntityType.LOCATION:
                 span = entity["span"]
-                span_rectangle = RectangularCuboid(
-                    span["latitude"]["low"], span["longitude"]["low"], span["altitude"]["low"],
-                    span["latitude"]["high"], span["longitude"]["high"], span["altitude"]["high"])
-                map_view.draw(span_rectangle, "green")
+                if len({"city", "town", "capital"}.intersection(entity["tags"])):
+                    circle = Circle(
+                        average((span["latitude"]["low"], span["latitude"]["high"])),
+                        average((span["longitude"]["low"], span["longitude"]["high"])),
+                        span["altitude"]["low"],
+                        average((
+                            span["latitude"]["high"] - span["latitude"]["low"],
+                            span["longitude"]["high"] - span["longitude"]["low"],
+                            span["altitude"]["high"] - span["altitude"]["low"])))
+                    map_view.draw(circle, "blue")
+                else:
+                    span_rectangle = RectangularCuboid(
+                        span["latitude"]["low"], span["longitude"]["low"], span["altitude"]["low"],
+                        span["latitude"]["high"], span["longitude"]["high"], span["altitude"]["high"])
+                    map_view.draw(span_rectangle, "green")
             else:
                 raise NotImplementedError(f"Rendering entities of type {entity_type} is not yet supported")
         map_view.render()
+        map_view.render(elevation=90, azimuth=-90)
 
 
 def _main(*, url: Optional[str], mm_conversion: Optional[float]) -> NoReturn:
