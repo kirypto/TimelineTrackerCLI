@@ -109,3 +109,7 @@ def input_dict(name: str, key_type: Type[TK], val_type: Type[TV], *, indent: int
 
 def get_entity_type(entity_id: str) -> EntityType:
     return EntityType(entity_id.split("-")[0])
+
+
+def avg(*values: float) -> float:
+    return sum(values) / len(values)

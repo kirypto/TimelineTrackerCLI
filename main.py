@@ -5,11 +5,9 @@ from pathlib import Path
 from shutil import get_terminal_size
 from typing import Dict, NoReturn, Optional, Any, Set, List, Union, Tuple, Iterable
 
-from numpy import average
-
 from map import MapView, RectangularCuboid, Circle
 from timeline_tracker_gateway import TimelineTrackerGateway
-from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict, get_entity_type
+from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict, get_entity_type, avg
 
 
 class _Command(Enum):
@@ -333,20 +331,27 @@ class ToolThing:
 
     def _handle_render_map(self) -> None:
         map_view = MapView()
+        reality = int(input("Enter reality: "))
+
+        entities_by_id: Dict[str, dict] = {}
         for entity_id in self.current_ids:
+            entity = self._gateway.get_entity(get_entity_type(entity_id).value, entity_id)
+            entities_by_id[entity_id] = entity
+
+        for entity_id, entity in entities_by_id.items():
             entity_type = get_entity_type(entity_id)
-            entity = self._gateway.get_entity(entity_type.value, entity_id)
             if entity_type == EntityType.LOCATION:
                 span = entity["span"]
+                if reality not in span["reality"]:
+                    print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as it is not in reality {reality}")
+                    continue
                 if len({"city", "town", "capital"}.intersection(entity["tags"])):
                     circle = Circle(
-                        average((span["latitude"]["low"], span["latitude"]["high"])),
-                        average((span["longitude"]["low"], span["longitude"]["high"])),
+                        avg(span["latitude"]["low"], span["latitude"]["high"]),
+                        avg(span["longitude"]["low"], span["longitude"]["high"]),
                         span["altitude"]["low"],
-                        average((
-                            span["latitude"]["high"] - span["latitude"]["low"],
-                            span["longitude"]["high"] - span["longitude"]["low"],
-                            span["altitude"]["high"] - span["altitude"]["low"])))
+                        avg(span["latitude"]["high"] - span["latitude"]["low"],
+                            span["longitude"]["high"] - span["longitude"]["low"]) / 2)
                     map_view.draw(circle, "blue")
                 else:
                     span_rectangle = RectangularCuboid(
@@ -354,7 +359,7 @@ class ToolThing:
                         span["latitude"]["high"], span["longitude"]["high"], span["altitude"]["high"])
                     map_view.draw(span_rectangle, "green")
             else:
-                raise NotImplementedError(f"Rendering entities of type {entity_type} is not yet supported")
+                print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as type {entity_type} is not supported")
         map_view.render()
         map_view.render(elevation=90, azimuth=-90)
 
