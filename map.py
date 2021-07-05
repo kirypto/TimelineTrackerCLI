@@ -98,11 +98,19 @@ class MapView:
     def __init__(self) -> None:
         self._figure = pyplot.figure(dpi=300)
         self._axes: Axes3D = self._figure.add_subplot(projection="3d")
+        self._axes.tick_params(labelsize=5)
         self._axes.set_xlabel("latitude")
         self._axes.set_ylabel("longitude")
         self._axes.set_zlabel("altitude")
 
     def render(self, *, elevation: int = 30, azimuth: int = -130) -> None:
+        if elevation > 45:
+            self._axes.xaxis.set_tick_params(pad=10, labelrotation=azimuth + 180)
+            self._axes.yaxis.set_tick_params(pad=1, labelrotation=azimuth + 90)
+        else:
+            self._axes.xaxis.set_tick_params(pad=-5, labelrotation=azimuth+90)
+            self._axes.yaxis.set_tick_params(pad=-5, labelrotation=azimuth-180)
+        self._axes.set_zlim3d()
         self._axes.view_init(elev=elevation, azim=azimuth)
         self._figure.show()
 
