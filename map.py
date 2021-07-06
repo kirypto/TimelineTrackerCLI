@@ -1,13 +1,13 @@
 from abc import ABC, abstractmethod
-from functools import total_ordering
 from math import cos, sin, radians
 from random import uniform
 from typing import Tuple, List, Optional, Any
 
 from PIL.Image import Image
 from matplotlib import pyplot
+from matplotlib.axes import Axes
 from matplotlib.colors import is_color_like
-from matplotlib.figure import Figure
+from matplotlib.figure import Figure, figaspect
 from mpl_toolkits.mplot3d import Axes3D
 
 LineData = Tuple[List[float], List[float], List[float]]
@@ -135,33 +135,31 @@ class CityMarker(_Drawable):
 
 class MapView:
     _figure: Figure
-    _axes: Axes3D
+    _axes_3d: Axes3D
+    _axes_2d: Axes
 
     def __init__(self) -> None:
-        self._figure = pyplot.figure(dpi=300)
-        self._axes: Axes3D = self._figure.add_subplot(projection="3d")
-        self._axes.tick_params(labelsize=5)
-        self._axes.set_xlabel("latitude")
-        self._axes.set_ylabel("longitude")
-        self._axes.set_zlabel("altitude")
+        self._figure = pyplot.figure(dpi=300, figsize=figaspect(0.5))
+        self._axes_2d: Axes = self._figure.add_subplot(121)
+        self._axes_3d: Axes3D = self._figure.add_subplot(122, projection="3d")
+        self._axes_3d.tick_params(labelsize=5)
+        self._axes_2d.set_xlabel("latitude")
+        self._axes_3d.set_xlabel("latitude")
+        self._axes_2d.set_ylabel("longitude")
+        self._axes_3d.set_ylabel("longitude")
+        self._axes_3d.set_zlabel("altitude")
 
     def draw(self, drawable: _Drawable) -> None:
         for x_data, y_data, z_data in drawable.line_data:
-            print(len(x_data), len(y_data), len(z_data), drawable.colour)
-            self._axes.plot3D(x_data, y_data, z_data, color=drawable.colour)
+            self._axes_3d.plot3D(x_data, y_data, z_data, color=drawable.colour)
+            self._axes_2d.plot(x_data, y_data, color=drawable.colour)
 
     def clear(self) -> None:
-        self._axes.clear()
+        self._axes_3d.clear()
 
     def render(self, *, elevation: int = 30, azimuth: int = -130) -> None:
-        if elevation > 45:
-            self._axes.xaxis.set_tick_params(pad=10, labelrotation=azimuth + 180)
-            self._axes.yaxis.set_tick_params(pad=1, labelrotation=azimuth + 90)
-        else:
-            self._axes.xaxis.set_tick_params(pad=-5, labelrotation=azimuth+90)
-            self._axes.yaxis.set_tick_params(pad=-5, labelrotation=azimuth-180)
-        self._axes.set_zlim3d()
-        self._axes.view_init(elev=elevation, azim=azimuth)
+        self._axes_3d.set_zlim3d()
+        self._axes_3d.view_init(elev=elevation, azim=azimuth)
         self._figure.show()
 
 
@@ -188,8 +186,9 @@ def _generate_circle(lat_pos: float, lon_pos: float, alt_pos: float, radius: flo
 
 def _main():
     map_view = MapView()
-    # map_view.draw(RectangularCuboid(.2, .2, .2, .6, .7, .8), "green")
-    map_view.draw(CityMarker(0.4, 0.3, 0.5, 0.25))
+    map_view.draw(CityMarker(6325, 8229, 0.3, 7.4))
+    map_view.render()
+    map_view.render(elevation=90, azimuth=-90)
     map_view.render(elevation=60)
     map_view.render(elevation=80, azimuth=-180)
     map_view.render(elevation=10, azimuth=-180)
