@@ -1,94 +1,136 @@
 from abc import ABC, abstractmethod
+from functools import total_ordering
 from math import cos, sin, radians
+from random import uniform
 from typing import Tuple, List, Optional, Any
 
+from PIL.Image import Image
 from matplotlib import pyplot
+from matplotlib.colors import is_color_like
 from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.colors import is_color_like
+
+LineData = Tuple[List[float], List[float], List[float]]
+Colour = Tuple[float, float, float, float]
 
 
-class Drawable(ABC):
+class Colours:
+    Blue: Colour = (0., 0., 1., 1.)
+
+
+class _Drawable(ABC):
+    @property
     @abstractmethod
-    def to_3d_data(self) -> Tuple[List[float], List[float], List[float]]:
+    def colour(self) -> Any:
+        pass
+
+    @property
+    @abstractmethod
+    def image(self) -> Optional[Image]:
+        pass
+
+    @property
+    @abstractmethod
+    def line_data(self) -> List[LineData]:
         pass
 
 
-class Circle(Drawable):
+class CityMarker(_Drawable):
     _lat_pos: float
     _lon_pos: float
     _alt_pos: float
     _radius: float
+    _colour: Any
+    _image: Optional[Image]
 
-    def __init__(self, lat_pos: float, lon_pos: float, alt_pos: float, radius: float) -> None:
+    @property
+    def colour(self) -> Any:
+        return self._colour
+
+    @property
+    def image(self) -> Optional[Image]:
+        return self._image
+
+    @property
+    def line_data(self) -> List[LineData]:
+        return [
+            _generate_circle(self._lat_pos, self._lon_pos, self._alt_pos, self._radius)
+        ]
+
+    def __init__(self, lat_pos: float, lon_pos: float, alt_pos: float, radius: float,
+                 *, colour: Colour = Colours.Blue) -> None:
+        if not is_color_like(colour):
+            raise ValueError(f"Provided colour '{colour}' could not be interpreted")
         self._lat_pos = lat_pos
         self._lon_pos = lon_pos
         self._alt_pos = alt_pos
         self._radius = radius
-
-    def to_3d_data(self) -> Tuple[List[float], List[float], List[float]]:
-        x_values = []
-        y_values = []
-        z_values = []
-        for deg in range(361):
-            x_values.append(self._lat_pos + sin(radians(deg)) * self._radius)
-            y_values.append(self._lon_pos + cos(radians(deg)) * self._radius)
-            z_values.append(self._alt_pos)
-        return x_values, y_values, z_values
+        self._colour = _randomize_colour(colour)
 
 
-class RectangularCuboid(Drawable):
-    _lat_low: float
-    _lat_high: float
-    _lon_low: float
-    _lon_high: float
-    _alt_low: float
-    _alt_high: float
-
-    def __init__(
-            self, lat_low: float, lon_low: float, alt_low: float,
-            lat_high: Optional[float] = None, lon_high: Optional[float] = None, alt_high: Optional[float] = None,
-            *, lat_length: Optional[float] = None, lon_width: Optional[float] = None, alt_depth: Optional[float] = None
-    ) -> None:
-        if (lat_high is None) == (lat_length is None):
-            raise ValueError("Either lat_high or lat_length must be provided (not both)")
-        if (lon_high is None) == (lon_width is None):
-            raise ValueError("Either lon_high or lon_width must be provided (not both)")
-        if (alt_high is None) == (alt_depth is None):
-            raise ValueError("Either alt_high or alt_depth must be provided (not both)")
-        self._lat_low = lat_low
-        self._lon_low = lon_low
-        self._alt_low = alt_low
-        self._lat_high = lat_high if lat_high is not None else lat_low + lat_length
-        self._lon_high = lon_high if lon_high is not None else lon_low + lon_width
-        self._alt_high = alt_high if alt_high is not None else alt_low + alt_depth
-
-    def to_3d_data(self) -> Tuple[List[float], List[float], List[float]]:
-        x_values = []
-        y_values = []
-        z_values = []
-        for x, y, z in [
-            (self._lat_low, self._lon_low, self._alt_low),
-            (self._lat_low, self._lon_high, self._alt_low),
-            (self._lat_low, self._lon_high, self._alt_high),
-            (self._lat_low, self._lon_low, self._alt_high),
-            (self._lat_low, self._lon_low, self._alt_low),
-            (self._lat_high, self._lon_low, self._alt_low),
-            (self._lat_high, self._lon_high, self._alt_low),
-            (self._lat_high, self._lon_high, self._alt_high),
-            (self._lat_high, self._lon_low, self._alt_high),
-            (self._lat_high, self._lon_low, self._alt_low),
-            (self._lat_high, self._lon_high, self._alt_low),
-            (self._lat_low, self._lon_high, self._alt_low),
-            (self._lat_low, self._lon_high, self._alt_high),
-            (self._lat_high, self._lon_high, self._alt_high),
-            (self._lat_high, self._lon_low, self._alt_high),
-            (self._lat_low, self._lon_low, self._alt_high),
-        ]:
-            x_values.append(x)
-            y_values.append(y)
-            z_values.append(z)
-        return x_values, y_values, z_values
+# class RectangularCuboid(_Drawable):
+#     @property
+#     def has_line_data(self) -> bool:
+#         return True
+#
+#     @property
+#     def has_image(self) -> bool:
+#         return False
+#
+#     def get_image(self) -> Image:
+#         pass
+#
+#     _lat_low: float
+#     _lat_high: float
+#     _lon_low: float
+#     _lon_high: float
+#     _alt_low: float
+#     _alt_high: float
+#
+#     def __init__(
+#             self, lat_low: float, lon_low: float, alt_low: float,
+#             lat_high: Optional[float] = None, lon_high: Optional[float] = None, alt_high: Optional[float] = None,
+#             *, lat_length: Optional[float] = None, lon_width: Optional[float] = None, alt_depth: Optional[float] = None
+#     ) -> None:
+#         if (lat_high is None) == (lat_length is None):
+#             raise ValueError("Either lat_high or lat_length must be provided (not both)")
+#         if (lon_high is None) == (lon_width is None):
+#             raise ValueError("Either lon_high or lon_width must be provided (not both)")
+#         if (alt_high is None) == (alt_depth is None):
+#             raise ValueError("Either alt_high or alt_depth must be provided (not both)")
+#         self._lat_low = lat_low
+#         self._lon_low = lon_low
+#         self._alt_low = alt_low
+#         self._lat_high = lat_high if lat_high is not None else lat_low + lat_length
+#         self._lon_high = lon_high if lon_high is not None else lon_low + lon_width
+#         self._alt_high = alt_high if alt_high is not None else alt_low + alt_depth
+#
+#     def get_line_data(self) -> Tuple[List[float], List[float], List[float]]:
+#         x_values = []
+#         y_values = []
+#         z_values = []
+#         for x, y, z in [
+#             (self._lat_low, self._lon_low, self._alt_low),
+#             (self._lat_low, self._lon_high, self._alt_low),
+#             (self._lat_low, self._lon_high, self._alt_high),
+#             (self._lat_low, self._lon_low, self._alt_high),
+#             (self._lat_low, self._lon_low, self._alt_low),
+#             (self._lat_high, self._lon_low, self._alt_low),
+#             (self._lat_high, self._lon_high, self._alt_low),
+#             (self._lat_high, self._lon_high, self._alt_high),
+#             (self._lat_high, self._lon_low, self._alt_high),
+#             (self._lat_high, self._lon_low, self._alt_low),
+#             (self._lat_high, self._lon_high, self._alt_low),
+#             (self._lat_low, self._lon_high, self._alt_low),
+#             (self._lat_low, self._lon_high, self._alt_high),
+#             (self._lat_high, self._lon_high, self._alt_high),
+#             (self._lat_high, self._lon_low, self._alt_high),
+#             (self._lat_low, self._lon_low, self._alt_high),
+#         ]:
+#             x_values.append(x)
+#             y_values.append(y)
+#             z_values.append(z)
+#         return x_values, y_values, z_values
 
 
 class MapView:
@@ -103,6 +145,14 @@ class MapView:
         self._axes.set_ylabel("longitude")
         self._axes.set_zlabel("altitude")
 
+    def draw(self, drawable: _Drawable) -> None:
+        for x_data, y_data, z_data in drawable.line_data:
+            print(len(x_data), len(y_data), len(z_data), drawable.colour)
+            self._axes.plot3D(x_data, y_data, z_data, color=drawable.colour)
+
+    def clear(self) -> None:
+        self._axes.clear()
+
     def render(self, *, elevation: int = 30, azimuth: int = -130) -> None:
         if elevation > 45:
             self._axes.xaxis.set_tick_params(pad=10, labelrotation=azimuth + 180)
@@ -114,20 +164,32 @@ class MapView:
         self._axes.view_init(elev=elevation, azim=azimuth)
         self._figure.show()
 
-    def draw(self, drawable: Drawable, colour: Any) -> None:
-        if not is_color_like(colour):
-            raise ValueError("Provided colour arg is invalid")
-        x_data, y_data, z_data = drawable.to_3d_data()
-        self._axes.plot3D(x_data, y_data, z_data, colour)
 
-    def clear(self) -> None:
-        self._axes.clear()
+def _randomize_colour(colour: Colour, *, delta: float = 0.05) -> Colour:
+    r, g, b, a = colour
+    return (
+        max(0., min(1., r + uniform(-delta, delta))),
+        max(0., min(1., g + uniform(-delta, delta))),
+        max(0., min(1., b + uniform(-delta, delta))),
+        max(0., min(1., a + uniform(-delta, delta))),
+    )
+
+
+def _generate_circle(lat_pos: float, lon_pos: float, alt_pos: float, radius: float) -> LineData:
+    x_values = []
+    y_values = []
+    z_values = []
+    for deg in range(361):
+        x_values.append(lat_pos + sin(radians(deg)) * radius)
+        y_values.append(lon_pos + cos(radians(deg)) * radius)
+        z_values.append(alt_pos)
+    return x_values, y_values, z_values
 
 
 def _main():
     map_view = MapView()
-    map_view.draw(RectangularCuboid(.2, .2, .2, .6, .7, .8), "green")
-    map_view.draw(Circle(0.4, 0.3, 0.5, 0.25), "blue")
+    # map_view.draw(RectangularCuboid(.2, .2, .2, .6, .7, .8), "green")
+    map_view.draw(CityMarker(0.4, 0.3, 0.5, 0.25))
     map_view.render(elevation=60)
     map_view.render(elevation=80, azimuth=-180)
     map_view.render(elevation=10, azimuth=-180)

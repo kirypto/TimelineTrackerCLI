@@ -5,7 +5,7 @@ from pathlib import Path
 from shutil import get_terminal_size
 from typing import Dict, NoReturn, Optional, Any, Set, List, Union, Tuple, Iterable
 
-from map import MapView, RectangularCuboid, Circle
+from map import MapView, CityMarker, Colours
 from timeline_tracker_gateway import TimelineTrackerGateway
 from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict, get_entity_type, avg
 
@@ -346,18 +346,19 @@ class ToolThing:
                     print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as it is not in reality {reality}")
                     continue
                 if len({"city", "town", "capital"}.intersection(entity["tags"])):
-                    circle = Circle(
+                    circle = CityMarker(
                         avg(span["latitude"]["low"], span["latitude"]["high"]),
                         avg(span["longitude"]["low"], span["longitude"]["high"]),
                         span["altitude"]["low"],
                         avg(span["latitude"]["high"] - span["latitude"]["low"],
-                            span["longitude"]["high"] - span["longitude"]["low"]) / 2)
-                    map_view.draw(circle, "blue")
+                            span["longitude"]["high"] - span["longitude"]["low"]) / 2, colour=Colours.Blue)
+                    map_view.draw(circle)
                 else:
-                    span_rectangle = RectangularCuboid(
-                        span["latitude"]["low"], span["longitude"]["low"], span["altitude"]["low"],
-                        span["latitude"]["high"], span["longitude"]["high"], span["altitude"]["high"])
-                    map_view.draw(span_rectangle, "green")
+                    print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as non-cities are not yet supported")
+                    # span_rectangle = RectangularCuboid(
+                    #     span["latitude"]["low"], span["longitude"]["low"], span["altitude"]["low"],
+                    #     span["latitude"]["high"], span["longitude"]["high"], span["altitude"]["high"])
+                    # map_view.draw(span_rectangle, "green")
             else:
                 print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as type {entity_type} is not supported")
         map_view.render()
