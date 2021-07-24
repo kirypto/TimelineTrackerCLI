@@ -352,7 +352,7 @@ class ToolThing:
                         span["altitude"]["low"],
                         avg(span["latitude"]["high"] - span["latitude"]["low"],
                             span["longitude"]["high"] - span["longitude"]["low"]) / 2, colour=Colours.Blue)
-                    map_view.draw(circle)
+                    map_view.add_item(circle)
                 else:
                     print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as non-cities are not yet supported")
                     # span_rectangle = RectangularCuboid(
