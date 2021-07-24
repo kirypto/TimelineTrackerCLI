@@ -17,6 +17,7 @@ AxesLimit = Tuple[float, float]
 
 class Colours:
     Blue: Colour = (0., 0., 1., 1.)
+    Green: Colour = (0., 1., 0., 1.)
 
 
 class _MapItem(ABC):
@@ -66,9 +67,9 @@ class CityMarker(_MapItem):
     @property
     def limits(self) -> Tuple[AxesLimit, AxesLimit, AxesLimit]:
         return (
-            (self._lat_pos + self._radius, self._lat_pos - self._radius),
-            (self._lon_pos + self._radius, self._lon_pos - self._radius),
-            (self._alt_pos + 1, self._alt_pos),
+            (self._lat_pos - self._radius, self._lat_pos + self._radius),
+            (self._lon_pos - self._radius, self._lon_pos + self._radius),
+            (self._alt_pos, self._alt_pos + 1),
         )
 
     def __init__(self, lat_pos: float, lon_pos: float, alt_pos: float, radius: float,
@@ -173,18 +174,18 @@ class MapView:
         self._map_items.clear()
 
     def render(self, *, elevation: int = 30, azimuth: int = -130) -> None:
-        x_high, x_low, y_high, y_low, z_high, z_low = [None, None, None, None, None, None]
+        x_low, x_high, y_low, y_high, z_low, z_high = [None, None, None, None, None, None]
         for item in self._map_items:
             if x_high is None:
-                (x_high, x_low), (y_high, y_low), (z_high, z_low) = item.limits
+                (x_low, x_high), (y_low, y_high), (z_low, z_high) = item.limits
             else:
                 x_limits, y_limits, z_limits = item.limits
-                x_high = max(x_high, x_limits[0])
                 x_low = max(x_low, x_limits[1])
-                y_high = max(y_high, y_limits[0])
+                x_high = max(x_high, x_limits[0])
                 y_low = max(y_low, y_limits[1])
-                z_high = max(z_high, z_limits[0])
+                y_high = max(y_high, y_limits[0])
                 z_low = max(z_low, z_limits[1])
+                z_high = max(z_high, z_limits[0])
             for x_data, y_data, z_data in item.line_data:
                 self._axes_3d.plot3D(x_data, y_data, z_data, color=item.colour)
                 self._axes_2d.plot(x_data, y_data, color=item.colour)
