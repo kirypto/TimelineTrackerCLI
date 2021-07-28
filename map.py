@@ -138,6 +138,17 @@ class MapView:
         z_low -= (z_high - z_low) / 20
         z_high += (z_high - z_low) / 20
 
+        x_delta = x_high - x_low
+        y_delta = y_high - y_low
+        if x_delta > y_delta:
+            diff = x_delta - y_delta
+            y_low -= diff / 2
+            y_high += diff / 2
+        else:
+            diff = y_delta - x_delta
+            x_low -= diff / 2
+            x_high += diff / 2
+
         self._axes_3d.view_init(elev=elevation, azim=azimuth)
         self._axes_3d.set_xlim3d(xmax=x_high, xmin=x_low)
         self._axes_3d.set_ylim3d(ymax=y_high, ymin=y_low)
