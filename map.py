@@ -69,7 +69,7 @@ class CityMarker(_MapItem):
     @property
     def line_data(self) -> List[LineData]:
         return [
-            _generate_circle(self._lat_pos, self._lon_pos, self._alt_pos, self._radius)
+            _generate_circle(self._lat_pos, self._lon_pos, self._alt_pos, self._radius),
         ]
 
     @property
@@ -231,6 +231,27 @@ def _generate_circle(lat_pos: float, lon_pos: float, alt_pos: float, radius: flo
         y_values.append(lon_pos + cos(radians(deg)) * radius)
         z_values.append(alt_pos)
     return x_values, y_values, z_values
+
+
+def _generate_octagon(
+        lat_low: float, lat_high: float, lon_low: float, lon_high: float, alt: float
+) -> LineData:
+    lat_mid_high = avg(lat_high, lat_high, lat_low)
+    lat_mid_low = avg(lat_high, lat_low, lat_low)
+    lon_mid_high = avg(lon_high, lat_high, lon_low)
+    lon_mid_low = avg(lon_high, lon_low, lat_low)
+    line_data = _convert_to_line_data([
+        (lat_low, lon_mid_low, alt),
+        (lat_low, lon_mid_high, alt),
+        (lat_mid_low, lon_high, alt),
+        (lat_mid_high, lon_high, alt),
+        (lat_high, lon_mid_high, alt),
+        (lat_high, lon_mid_low, alt),
+        (lat_mid_high, lon_low, alt),
+        (lat_mid_low, lon_low, alt),
+        (lat_low, lon_mid_low, alt),
+    ])
+    return line_data
 
 
 def _generate_cuboid(
