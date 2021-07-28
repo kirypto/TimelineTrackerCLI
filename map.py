@@ -57,14 +57,15 @@ class _MapItem(ABC):
 
 
 class CityMarker(_MapItem):
+    _line_data: Optional[List[LineData]]
+
     @property
     def line_data(self) -> List[LineData]:
-        lat_mid = avg(self._span.latitude.low, self._span.latitude.high)
-        lon_mid = avg(self._span.longitude.low, self._span.longitude.high)
-        radius = avg(self._span.latitude.high - self._span.latitude.low, self._span.latitude.high - self._span.latitude.low) / 2
-        return [
-            _generate_circle(lat_mid, lon_mid, self._span.altitude.low, radius),
-        ]
+        if not self._line_data:
+            self._line_data = [
+                _generate_octagon(self._span.latitude, self._span.longitude, self._span.altitude.low),
+            ]
+        return self._line_data
 
     def __init__(self, span: Span, *, colour: Colour = Colours.Blue, image: Image = None) -> None:
         if not is_color_like(colour):
@@ -74,13 +75,17 @@ class CityMarker(_MapItem):
 
 
 class BuildingMarker(_MapItem):
+    _line_data: Optional[List[LineData]]
+
     @property
     def line_data(self) -> List[LineData]:
-        return _generate_cuboid(
-            self._span.latitude.low, self._span.latitude.high,
-            self._span.longitude.low, self._span.longitude.high,
-            self._span.altitude.low, self._span.altitude.high
-        )
+        if not self._line_data:
+            self._line_data = _generate_cuboid(
+                self._span.latitude.low, self._span.latitude.high,
+                self._span.longitude.low, self._span.longitude.high,
+                self._span.altitude.low, self._span.altitude.high
+            )
+        return self._line_data
 
     def __init__(self, span: Span, *, colour: Colour = Colours.Green, image: Image = None) -> None:
         if not is_color_like(colour):
@@ -179,25 +184,22 @@ def _generate_circle(lat_pos: float, lon_pos: float, alt_pos: float, radius: flo
     return x_values, y_values, z_values
 
 
-def _generate_octagon(
-        lat_low: float, lat_high: float, lon_low: float, lon_high: float, alt: float
-) -> LineData:
-    lat_mid_high = avg(lat_high, lat_high, lat_low)
-    lat_mid_low = avg(lat_high, lat_low, lat_low)
-    lon_mid_high = avg(lon_high, lat_high, lon_low)
-    lon_mid_low = avg(lon_high, lon_low, lat_low)
-    line_data = _convert_to_line_data([
-        (lat_low, lon_mid_low, alt),
-        (lat_low, lon_mid_high, alt),
-        (lat_mid_low, lon_high, alt),
-        (lat_mid_high, lon_high, alt),
-        (lat_high, lon_mid_high, alt),
-        (lat_high, lon_mid_low, alt),
-        (lat_mid_high, lon_low, alt),
-        (lat_mid_low, lon_low, alt),
-        (lat_low, lon_mid_low, alt),
+def _generate_octagon(lat: Range, lon: Range, alt: float) -> LineData:
+    lat_mid_high = avg(lat.high, lat.high, lat.high, lat.low)
+    lat_mid_low = avg(lat.high, lat.low, lat.low, lat.low)
+    lon_mid_high = avg(lon.high, lon.high, lon.high, lon.low)
+    lon_mid_low = avg(lon.high, lon.low, lon.low, lon.low)
+    return _convert_to_line_data([
+        (lat.low, lon_mid_low, alt),
+        (lat.low, lon_mid_high, alt),
+        (lat_mid_low, lon.high, alt),
+        (lat_mid_high, lon.high, alt),
+        (lat.high, lon_mid_high, alt),
+        (lat.high, lon_mid_low, alt),
+        (lat_mid_high, lon.low, alt),
+        (lat_mid_low, lon.low, alt),
+        (lat.low, lon_mid_low, alt),
     ])
-    return line_data
 
 
 def _generate_cuboid(
