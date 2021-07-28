@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from math import cos, sin, radians
 from random import uniform
-from typing import Tuple, List, Optional, Any, Set
+from typing import Tuple, List, Optional, Any, Set, Dict
 
 from PIL.Image import Image
 from matplotlib import pyplot
@@ -9,6 +9,8 @@ from matplotlib.axes import Axes
 from matplotlib.colors import is_color_like
 from matplotlib.figure import Figure, figaspect
 from mpl_toolkits.mplot3d import Axes3D
+
+from util import avg
 
 LineData = Tuple[List[float], List[float], List[float]]
 Colour = Tuple[float, float, float, float]
@@ -42,6 +44,11 @@ class _MapItem(ABC):
     def limits(self) -> Tuple[AxesLimit, AxesLimit, AxesLimit]:
         pass
 
+    @classmethod
+    @abstractmethod
+    def from_span(cls, span: Dict[str, Dict[str, float]]):
+        pass
+
 
 class CityMarker(_MapItem):
     _lat_pos: float
@@ -71,6 +78,17 @@ class CityMarker(_MapItem):
             (self._lat_pos - self._radius, self._lat_pos + self._radius),
             (self._lon_pos - self._radius, self._lon_pos + self._radius),
             (self._alt_pos, self._alt_pos + 1),
+        )
+
+    @classmethod
+    def from_span(cls, span: Dict[str, Dict[str, float]], *, colour: Colour = Colours.Blue) -> "CityMarker":
+        return CityMarker(
+            avg(span["latitude"]["low"], span["latitude"]["high"]),
+            avg(span["longitude"]["low"], span["longitude"]["high"]),
+            span["altitude"]["low"],
+            avg(span["latitude"]["high"] - span["latitude"]["low"],
+                span["longitude"]["high"] - span["longitude"]["low"]) / 2,
+            colour=colour,
         )
 
     def __init__(self, lat_pos: float, lon_pos: float, alt_pos: float, radius: float,
@@ -112,6 +130,15 @@ class BuildingMarker(_MapItem):
             (self._lat_low, self._lat_high),
             (self._lon_low, self._lon_high),
             (self._alt_low, self._alt_high),
+        )
+
+    @classmethod
+    def from_span(cls, span: Dict[str, Dict[str, float]], *, colour: Colour = Colours.Green) -> "BuildingMarker":
+        return BuildingMarker(
+            span["latitude"]["low"], span["latitude"]["high"],
+            span["longitude"]["low"], span["longitude"]["high"],
+            span["altitude"]["low"], span["altitude"]["high"],
+            colour=colour,
         )
 
     def __init__(self, lat_low: float, lat_high: float, lon_low: float, lon_high: float, alt_low: float, alt_high: float,
