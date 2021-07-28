@@ -7,7 +7,7 @@ from typing import Dict, NoReturn, Optional, Any, Set, List, Union, Tuple, Itera
 
 from map import MapView, CityMarker, BuildingMarker
 from timeline_tracker_gateway import TimelineTrackerGateway
-from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict, get_entity_type
+from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict, get_entity_type, Span
 
 
 class _Command(Enum):
@@ -341,14 +341,14 @@ class ToolThing:
         for entity_id, entity in entities_by_id.items():
             entity_type = get_entity_type(entity_id)
             if entity_type == EntityType.LOCATION:
-                span = entity["span"]
-                if reality not in span["reality"]:
+                span = Span(entity["span"])
+                if reality not in span.reality:
                     print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as it is not in reality {reality}")
                     continue
                 if len({"city", "town", "capital"}.intersection(entity["tags"])):
-                    map_view.add_item(CityMarker.from_span(span))
+                    map_view.add_item(CityMarker(span))
                 else:
-                    map_view.add_item(BuildingMarker.from_span(span))
+                    map_view.add_item(BuildingMarker(span))
             else:
                 print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as type {entity_type} is not supported")
         map_view.render()

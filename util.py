@@ -1,7 +1,7 @@
 from enum import Enum
 from json import loads
 from math import floor
-from typing import Tuple, Union, Type, List, TypeVar, Dict
+from typing import Tuple, Union, Type, List, TypeVar, Dict, Set, Any, Optional
 
 T = TypeVar("T")
 TK = TypeVar("TK")
@@ -113,3 +113,60 @@ def get_entity_type(entity_id: str) -> EntityType:
 
 def avg(*values: float) -> float:
     return sum(values) / len(values)
+
+
+class Range:
+    _low: float
+    _high: float
+
+    @property
+    def low(self) -> float:
+        return self._low
+
+    @property
+    def high(self) -> float:
+        return self._high
+
+    def __init__(self, *limits: float) -> None:
+        if len(limits) == 0 or len(limits) > 2:
+            raise ValueError(f"{Range.__name__} constructor takes either 1 or 2 arguments")
+        self._low = min(limits)
+        self._high = max(limits)
+
+
+class Span:
+    _lat: Range
+    _lon: Range
+    _alt: Range
+    _con: Range
+    _rea: Set[float]
+
+    @property
+    def latitude(self) -> Range:
+        return self._lat
+
+    @property
+    def longitude(self) -> Range:
+        return self._lon
+
+    @property
+    def altitude(self) -> Range:
+        return self._alt
+
+    @property
+    def continuum(self) -> Range:
+        return self._con
+
+    @property
+    def reality(self) -> Set[float]:
+        return self._rea
+
+    def __init__(
+            self, span: Optional[Dict[str, Any]],
+            *, lat: Range = None, lon: Range = None, alt: Range = None, con: Range = None, rea: Set[float] = None
+    ) -> None:
+        self._lat = lat if lat is not None else Range(*span["latitude"].values())
+        self._lon = lon if lon is not None else Range(*span["longitude"].values())
+        self._alt = alt if alt is not None else Range(*span["altitude"].values())
+        self._con = con if con is not None else Range(*span["continuum"].values())
+        self._rea = rea if rea is not None else span["reality"]

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from math import cos, sin, radians
 from random import uniform
-from typing import Tuple, List, Optional, Any, Set, Dict
+from typing import Tuple, List, Optional, Set
 
 from PIL.Image import Image
 from matplotlib import pyplot
@@ -10,7 +10,7 @@ from matplotlib.colors import is_color_like
 from matplotlib.figure import Figure, figaspect
 from mpl_toolkits.mplot3d import Axes3D
 
-from util import avg
+from util import avg, Span, Range
 
 LineData = Tuple[List[float], List[float], List[float]]
 Colour = Tuple[float, float, float, float]
@@ -21,18 +21,26 @@ Point3D = Tuple[float, float, float]
 class Colours:
     Blue: Colour = (0., 0., 1., 1.)
     Green: Colour = (0., 1., 0., 1.)
+    Black: Colour = (0., 0., 0., 1.)
 
 
 class _MapItem(ABC):
-    @property
-    @abstractmethod
-    def colour(self) -> Any:
-        pass
+    _span: Span
+    _image: Image
+    _colour: Colour
+
+    def __init__(self, span: Span, *, image: Image = None, colour: Colour = Colours.Black) -> None:
+        self._span = span
+        self._image = image
+        self._colour = colour
 
     @property
-    @abstractmethod
+    def colour(self) -> Colour:
+        return self._colour
+
+    @property
     def image(self) -> Optional[Image]:
-        pass
+        return self._image
 
     @property
     @abstractmethod
@@ -40,118 +48,45 @@ class _MapItem(ABC):
         pass
 
     @property
-    @abstractmethod
     def limits(self) -> Tuple[AxesLimit, AxesLimit, AxesLimit]:
-        pass
-
-    @classmethod
-    @abstractmethod
-    def from_span(cls, span: Dict[str, Dict[str, float]]):
-        pass
+        return (
+            (self._span.latitude.low, self._span.latitude.high),
+            (self._span.longitude.low, self._span.longitude.high),
+            (self._span.altitude.low, self._span.altitude.high),
+        )
 
 
 class CityMarker(_MapItem):
-    _lat_pos: float
-    _lon_pos: float
-    _alt_pos: float
-    _radius: float
-    _colour: Any
-    _image: Optional[Image]
-
-    @property
-    def colour(self) -> Any:
-        return self._colour
-
-    @property
-    def image(self) -> Optional[Image]:
-        return self._image
-
     @property
     def line_data(self) -> List[LineData]:
+        lat_mid = avg(self._span.latitude.low, self._span.latitude.high)
+        lon_mid = avg(self._span.longitude.low, self._span.longitude.high)
+        radius = avg(self._span.latitude.high - self._span.latitude.low, self._span.latitude.high - self._span.latitude.low) / 2
         return [
-            _generate_circle(self._lat_pos, self._lon_pos, self._alt_pos, self._radius),
+            _generate_circle(lat_mid, lon_mid, self._span.altitude.low, radius),
         ]
 
-    @property
-    def limits(self) -> Tuple[AxesLimit, AxesLimit, AxesLimit]:
-        return (
-            (self._lat_pos - self._radius, self._lat_pos + self._radius),
-            (self._lon_pos - self._radius, self._lon_pos + self._radius),
-            (self._alt_pos, self._alt_pos + 1),
-        )
-
-    @classmethod
-    def from_span(cls, span: Dict[str, Dict[str, float]], *, colour: Colour = Colours.Blue) -> "CityMarker":
-        return CityMarker(
-            avg(span["latitude"]["low"], span["latitude"]["high"]),
-            avg(span["longitude"]["low"], span["longitude"]["high"]),
-            span["altitude"]["low"],
-            avg(span["latitude"]["high"] - span["latitude"]["low"],
-                span["longitude"]["high"] - span["longitude"]["low"]) / 2,
-            colour=colour,
-        )
-
-    def __init__(self, lat_pos: float, lon_pos: float, alt_pos: float, radius: float,
-                 *, colour: Colour = Colours.Blue) -> None:
+    def __init__(self, span: Span, *, colour: Colour = Colours.Blue, image: Image = None) -> None:
         if not is_color_like(colour):
             raise ValueError(f"Provided colour '{colour}' could not be interpreted")
-        self._lat_pos = lat_pos
-        self._lon_pos = lon_pos
-        self._alt_pos = alt_pos
-        self._radius = radius
-        self._colour = _randomize_colour(colour)
+        colour_mutated = _randomize_colour(colour)
+        super(CityMarker, self).__init__(span, colour=colour_mutated, image=image)
 
 
 class BuildingMarker(_MapItem):
-    _lat_low: float
-    _lat_high: float
-    _lon_low: float
-    _lon_high: float
-    _alt_low: float
-    _alt_high: float
-    _colour: Any
-    _image: Optional[Image]
-
-    @property
-    def colour(self) -> Any:
-        return self._colour
-
-    @property
-    def image(self) -> Optional[Image]:
-        return self._image
-
     @property
     def line_data(self) -> List[LineData]:
-        return _generate_cuboid(self._lat_low, self._lat_high, self._lon_low, self._lon_high, self._alt_low, self._alt_high)
-
-    @property
-    def limits(self) -> Tuple[AxesLimit, AxesLimit, AxesLimit]:
-        return (
-            (self._lat_low, self._lat_high),
-            (self._lon_low, self._lon_high),
-            (self._alt_low, self._alt_high),
+        return _generate_cuboid(
+            self._span.latitude.low, self._span.latitude.high,
+            self._span.longitude.low, self._span.longitude.high,
+            self._span.altitude.low, self._span.altitude.high
         )
 
-    @classmethod
-    def from_span(cls, span: Dict[str, Dict[str, float]], *, colour: Colour = Colours.Green) -> "BuildingMarker":
-        return BuildingMarker(
-            span["latitude"]["low"], span["latitude"]["high"],
-            span["longitude"]["low"], span["longitude"]["high"],
-            span["altitude"]["low"], span["altitude"]["high"],
-            colour=colour,
-        )
-
-    def __init__(self, lat_low: float, lat_high: float, lon_low: float, lon_high: float, alt_low: float, alt_high: float,
-                 *, colour: Colour = Colours.Green) -> None:
+    def __init__(self, span: Span, *, colour: Colour = Colours.Green, image: Image = None) -> None:
         if not is_color_like(colour):
             raise ValueError(f"Provided colour '{colour}' could not be interpreted")
-        self._lat_low = lat_low
-        self._lat_high = lat_high
-        self._lon_low = lon_low
-        self._lon_high = lon_high
-        self._alt_low = alt_low
-        self._alt_high = alt_high
-        self._colour = _randomize_colour(colour)
+        colour_mutated = _randomize_colour(colour)
+        super(BuildingMarker, self).__init__(span, colour=colour_mutated, image=image)
 
 
 class MapView:
@@ -305,7 +240,7 @@ def _convert_to_line_data(points: List[Point3D]) -> LineData:
 
 def _main():
     map_view = MapView()
-    map_view.add_item(CityMarker(6325, 8229, 0.3, 7.4))
+    map_view.add_item(CityMarker(Span(None, lat=Range(6315, 6330), lon=Range(8220, 8250), alt=Range(0.3), con=Range(0), rea={0})))
     map_view.render()
     map_view.render(elevation=90, azimuth=-90)
     map_view.render(elevation=60)
