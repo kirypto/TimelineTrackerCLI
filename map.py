@@ -72,6 +72,7 @@ class CityMarker(_MapItem):
             raise ValueError(f"Provided colour '{colour}' could not be interpreted")
         colour_mutated = _randomize_colour(colour)
         super(CityMarker, self).__init__(span, colour=colour_mutated, image=image)
+        self._line_data = None
 
 
 class BuildingMarker(_MapItem):
@@ -92,6 +93,7 @@ class BuildingMarker(_MapItem):
             raise ValueError(f"Provided colour '{colour}' could not be interpreted")
         colour_mutated = _randomize_colour(colour)
         super(BuildingMarker, self).__init__(span, colour=colour_mutated, image=image)
+        self._line_data = None
 
 
 class MapView:
