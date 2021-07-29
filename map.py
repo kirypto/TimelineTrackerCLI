@@ -122,6 +122,21 @@ class MapView:
         self._map_items.clear()
 
     def render(self, *, elevation: int = 30, azimuth: int = -130) -> None:
+        x_high, x_low, y_high, y_low, z_high, z_low = self._calculate_render_limits()
+        for item in self._map_items:
+            for x_data, y_data, z_data in item.line_data:
+                self._axes_3d.plot3D(x_data, y_data, z_data, color=item.colour)
+                self._axes_2d.plot(x_data, y_data, color=item.colour)
+
+        self._axes_3d.view_init(elev=elevation, azim=azimuth)
+        self._axes_3d.set_xlim3d(xmax=x_high, xmin=x_low)
+        self._axes_3d.set_ylim3d(ymax=y_high, ymin=y_low)
+        self._axes_3d.set_zlim3d(zmax=z_high, zmin=z_low)
+        self._axes_2d.set_xlim(xmax=x_high, xmin=x_low)
+        self._axes_2d.set_ylim(ymax=y_high, ymin=y_low)
+        self._figure.show()
+
+    def _calculate_render_limits(self):
         x_low, x_high, y_low, y_high, z_low, z_high = [None, None, None, None, None, None]
         for item in self._map_items:
             if x_high is None:
@@ -134,17 +149,12 @@ class MapView:
                 y_high = max(y_high, y_limits[1])
                 z_low = min(z_low, z_limits[0])
                 z_high = max(z_high, z_limits[1])
-            for x_data, y_data, z_data in item.line_data:
-                self._axes_3d.plot3D(x_data, y_data, z_data, color=item.colour)
-                self._axes_2d.plot(x_data, y_data, color=item.colour)
-
         x_low -= (x_high - x_low) / 20
         x_high += (x_high - x_low) / 20
         y_low -= (y_high - y_low) / 20
         y_high += (y_high - y_low) / 20
         z_low -= (z_high - z_low) / 20
         z_high += (z_high - z_low) / 20
-
         x_delta = x_high - x_low
         y_delta = y_high - y_low
         if x_delta > y_delta:
@@ -155,14 +165,7 @@ class MapView:
             diff = y_delta - x_delta
             x_low -= diff / 2
             x_high += diff / 2
-
-        self._axes_3d.view_init(elev=elevation, azim=azimuth)
-        self._axes_3d.set_xlim3d(xmax=x_high, xmin=x_low)
-        self._axes_3d.set_ylim3d(ymax=y_high, ymin=y_low)
-        self._axes_3d.set_zlim3d(zmax=z_high, zmin=z_low)
-        self._axes_2d.set_xlim(xmax=x_high, xmin=x_low)
-        self._axes_2d.set_ylim(ymax=y_high, ymin=y_low)
-        self._figure.show()
+        return x_high, x_low, y_high, y_low, z_high, z_low
 
 
 def _randomize_colour(colour: Colour, *, delta: float = 0.25) -> Colour:
