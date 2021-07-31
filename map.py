@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from math import cos, sin, radians
 from random import uniform
-from typing import Tuple, List, Optional, Set
+from typing import Tuple, List, Optional, Set, Callable
 
 from PIL.Image import Image
 from matplotlib import pyplot
@@ -54,6 +54,15 @@ class _MapItem(ABC):
             (self._span.longitude.low, self._span.longitude.high),
             (self._span.altitude.low, self._span.altitude.high),
         )
+
+    @staticmethod
+    def sort_key(by: str = "alt") -> Callable[["_MapItem"], float]:
+        def inner(map_item: _MapItem) -> float:
+            if by == "alt":
+                return map_item._span.altitude.low
+            else:
+                raise ValueError(f"Cannot order Map items by '{by}'")
+        return inner
 
 
 class CityMarker(_MapItem):
@@ -122,18 +131,21 @@ class MapView:
         self._map_items.clear()
 
     def render(self, *, elevation: int = 30, azimuth: int = -130) -> None:
-        x_high, x_low, y_high, y_low, z_high, z_low = self._calculate_render_limits()
-        for item in self._map_items:
+        for item in sorted(self._map_items, key=_MapItem.sort_key("alt")):
+            if item.image:
+                (item_x_low, item_x_high), (item_y_low, item_y_high), _ = item.limits
+                self._axes_2d.imshow(item.image, extent=[item_x_low, item_x_high, item_y_low, item_y_high])
             for x_data, y_data, z_data in item.line_data:
                 self._axes_3d.plot3D(x_data, y_data, z_data, color=item.colour)
                 self._axes_2d.plot(x_data, y_data, color=item.colour)
 
+        map_x_high, map_x_low, map_y_high, map_y_low, map_z_high, map_z_low = self._calculate_render_limits()
         self._axes_3d.view_init(elev=elevation, azim=azimuth)
-        self._axes_3d.set_xlim3d(xmax=x_high, xmin=x_low)
-        self._axes_3d.set_ylim3d(ymax=y_high, ymin=y_low)
-        self._axes_3d.set_zlim3d(zmax=z_high, zmin=z_low)
-        self._axes_2d.set_xlim(xmax=x_high, xmin=x_low)
-        self._axes_2d.set_ylim(ymax=y_high, ymin=y_low)
+        self._axes_3d.set_xlim3d(xmax=map_x_high, xmin=map_x_low)
+        self._axes_3d.set_ylim3d(ymax=map_y_high, ymin=map_y_low)
+        self._axes_3d.set_zlim3d(zmax=map_z_high, zmin=map_z_low)
+        self._axes_2d.set_xlim(xmax=map_x_high, xmin=map_x_low)
+        self._axes_2d.set_ylim(ymax=map_y_high, ymin=map_y_low)
         self._figure.show()
 
     def _calculate_render_limits(self):

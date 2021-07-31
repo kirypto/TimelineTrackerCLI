@@ -3,6 +3,9 @@ from json import loads
 from math import floor
 from typing import Tuple, Union, Type, List, TypeVar, Dict, Set, Any, Optional
 
+from PIL.Image import Image, open as img_open
+from requests import get, RequestException
+
 T = TypeVar("T")
 TK = TypeVar("TK")
 TV = TypeVar("TV")
@@ -170,3 +173,11 @@ class Span:
         self._alt = alt if alt is not None else Range(*span["altitude"].values())
         self._con = con if con is not None else Range(*span["continuum"].values())
         self._rea = rea if rea is not None else span["reality"]
+
+
+def get_image(url: str) -> Optional[Image]:
+    try:
+        return img_open(get(url, stream=True).raw)
+    except RequestException as e:
+        print(f"  !! Failed to retrieve image from url '{url}': {e}")
+        return None
