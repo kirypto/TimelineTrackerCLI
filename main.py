@@ -331,7 +331,8 @@ class ToolThing:
 
     def _handle_render_map(self) -> None:
         map_view = MapView()
-        reality = int(input("Enter reality: "))
+        reality = int(input("  Enter reality: ") or 0)
+        continuum = TimeHelper.input_ymdh("  Enter continuum:")
 
         entities_by_id: Dict[str, dict] = {}
         for entity_id in self.current_ids:
@@ -344,6 +345,9 @@ class ToolThing:
                 span = Span(entity["span"])
                 if reality not in span.reality:
                     print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as it is not in reality {reality}")
+                    continue
+                if span.continuum.low > continuum or span.continuum.high < continuum:
+                    print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as it is not in continuum {continuum}")
                     continue
                 if len({"city", "town", "capital"}.intersection(entity["tags"])):
                     marker_class = CityMarker
