@@ -150,7 +150,7 @@ class MapView:
                 self._axes_2d.imshow(item.image, extent=[item_x_low, item_x_high, item_y_low, item_y_high])
             for x_data, y_data, z_data in item.line_data:
                 self._axes_3d.plot3D(x_data, y_data, z_data, color=item.colour)
-                self._axes_2d.plot(x_data, y_data, color=item.colour)
+                self._axes_2d.plot(x_data, y_data, color=item.colour, linewidth=0.5)
             if item.label:
                 offset = (map_y_high - map_y_low) / 100
                 self._axes_2d.text(avg(item_x_high, item_x_low), item_y_high + offset, item.label,
@@ -177,12 +177,12 @@ class MapView:
                 y_high = max(y_high, y_limits[1])
                 z_low = min(z_low, z_limits[0])
                 z_high = max(z_high, z_limits[1])
-        x_low -= (x_high - x_low) / 20
-        x_high += (x_high - x_low) / 20
-        y_low -= (y_high - y_low) / 20
-        y_high += (y_high - y_low) / 20
-        z_low -= (z_high - z_low) / 20
-        z_high += (z_high - z_low) / 20
+        x_low -= (x_high - x_low) / 50
+        x_high += (x_high - x_low) / 50
+        y_low -= (y_high - y_low) / 50
+        y_high += (y_high - y_low) / 30
+        z_low -= (z_high - z_low) / 50
+        z_high += (z_high - z_low) / 50
         x_delta = x_high - x_low
         y_delta = y_high - y_low
         if x_delta > y_delta:
