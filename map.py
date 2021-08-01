@@ -152,9 +152,7 @@ class MapView:
                 self._axes_3d.plot3D(x_data, y_data, z_data, color=item.colour)
                 self._axes_2d.plot(x_data, y_data, color=item.colour, linewidth=0.5)
             if item.label:
-                offset = (map_y_high - map_y_low) / 100
-                self._axes_2d.text(avg(item_x_high, item_x_low), item_y_high + offset, item.label,
-                                   fontsize=3, ha="center", weight="light")
+                self._axes_2d.text(avg(item_x_high, item_x_low), item_y_high, item.label, fontsize=3, ha="center", weight="light")
 
         self._axes_3d.view_init(elev=elevation, azim=azimuth)
         self._axes_3d.set_xlim3d(xmax=map_x_high, xmin=map_x_low)
