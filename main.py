@@ -41,38 +41,93 @@ class _PatchOp(Enum):
         return self.name.replace("_", " ").lower()
 
 
-class TimelineTrackerCLI:
-    _gateway: TimelineTrackerGateway
+class _Selection:
     _unit_scale: Optional[float]
-    __current_ids: List[str]
+    _current_ids: List[str]
+
+    @property
+    def unit_scale(self) -> Optional[float]:
+        return self._unit_scale
+
+    @unit_scale.setter
+    def unit_scale(self, scale: float) -> None:
+        self._unit_scale = scale
+        self._update_cached_selection()
 
     @property
     def focus_id(self) -> str:
-        if not self.__current_ids:
+        if not self._current_ids:
             raise ValueError("No ids are set")
-        return self.__current_ids[0]
+        return self._current_ids[0]
 
     @property
     def focus_entity_type(self) -> EntityType:
         return get_entity_type(self.focus_id)
-    
+
     @property
     def current_ids(self) -> Set[str]:
-        return set(self.__current_ids)
+        return set(self._current_ids)
 
     @current_ids.setter
     def current_ids(self, value: Union[Tuple[str, Iterable[str]], Iterable[str]]) -> None:
         if type(value) is tuple:
             value: Tuple[str, Iterable[str]]
             focus_id, other_ids = value
-            self.__current_ids = [focus_id, *other_ids]
+            self._current_ids = [focus_id, *other_ids]
         else:
-            self.__current_ids = list(value)
+            self._current_ids = list(value)
+        self._update_cached_selection()
+
+    def __init__(self, *, unit_scale: float = None, current_ids: List[str] = None) -> None:
+        cached_selection = self._load_cached_selection()
+        self._unit_scale = unit_scale or cached_selection.get("unit_scale", None) or None
+        self._current_ids = current_ids or cached_selection.get("current_ids", None) or []
+
+    def _update_cached_selection(self) -> None:
+        selection = {
+            "unit_scale": self._unit_scale,
+            "current_ids": self._current_ids,
+        }
+        selection_cache_file = Path(__file__).parent.joinpath("__selection_cache__")
+        selection_cache_file.write_text(dumps(selection, indent=2), encoding="utf8")
+
+    @staticmethod
+    def _load_cached_selection() -> Dict[str, Any]:
+        selection_cache_file = Path(__file__).parent.joinpath("__selection_cache__")
+        return loads(selection_cache_file.read_text(encoding="utf8")) if selection_cache_file.exists() else {}
+
+
+class TimelineTrackerCLI:
+    _gateway: TimelineTrackerGateway
+    _selection: _Selection
+
+    @property
+    def unit_scale(self) -> Optional[float]:
+        return self._selection.unit_scale
+
+    @unit_scale.setter
+    def unit_scale(self, scale: float) -> None:
+        self._selection.unit_scale = scale
+
+    @property
+    def focus_id(self) -> str:
+        return self._selection.focus_id
+
+    @property
+    def focus_entity_type(self) -> EntityType:
+        return self._selection.focus_entity_type
+
+    @property
+    def current_ids(self) -> Set[str]:
+        return self._selection.current_ids
+
+    @current_ids.setter
+    def current_ids(self, value: Union[Tuple[str, Iterable[str]], Iterable[str]]) -> None:
+        self._selection.current_ids = value
 
     def __init__(self, gateway: TimelineTrackerGateway, unit_scale: float) -> None:
         self._gateway = gateway
-        self.__current_ids = []
-        self._unit_scale = unit_scale
+        self._selection = _Selection(unit_scale=unit_scale)
 
     def main_loop(self) -> NoReturn:
         while True:
@@ -83,7 +138,7 @@ class TimelineTrackerCLI:
                     exit()
                 elif command == _Command.CHANGE_UNIT_SCALE:
                     scale = input("Input new unit scale: ")
-                    self._unit_scale = float(scale) if scale else None
+                    self.unit_scale = float(scale) if scale else None
                 elif command == _Command.SET_CURRENT_ID:
                     self.current_ids = {input("Input an id: ")}
                 elif command == _Command.GET_ENTITY_DETAIL:
@@ -114,7 +169,7 @@ class TimelineTrackerCLI:
     def _print_header(self) -> None:
         width, _ = get_terminal_size((100, 1))
         print("".join("_" for _ in range(0, width)))
-        scale = f"1mm = {self._unit_scale}km" if self._unit_scale is not None else "N/A"
+        scale = f"1mm = {self.unit_scale}km" if self.unit_scale is not None else "N/A"
         focus_id_text = self.focus_id if len(self.current_ids) > 0 else "N/A"
         print(f"  Focus Id: {focus_id_text}".ljust(width - 30) + f"Unit scale: {scale}  ".rjust(30))
         if len(self.current_ids) > 1:
@@ -149,12 +204,12 @@ class TimelineTrackerCLI:
 
     def _input_spacial_position(self, prompt: str, *, mm_conversion: bool = False) -> float:
         print(prompt)
-        mm_conversion &= self._unit_scale is not None
+        mm_conversion &= self.unit_scale is not None
         km_portion = float(input("      km=") or 0)
         mm_portion = float(input("      mm=") or 0) if mm_conversion else 0
         result = km_portion
         if mm_conversion:
-            result += self._unit_scale * mm_portion
+            result += self.unit_scale * mm_portion
         return result
 
     def _handle_get_entity_detail(self) -> None:
