@@ -41,7 +41,7 @@ class _PatchOp(Enum):
         return self.name.replace("_", " ").lower()
 
 
-class ToolThing:
+class TimelineTrackerCLI:
     _gateway: TimelineTrackerGateway
     _unit_scale: Optional[float]
     __current_ids: List[str]
@@ -371,7 +371,7 @@ def _main(*, url: Optional[str], mm_conversion: Optional[float]) -> NoReturn:
             raise ValueError(f"Invalid configuration, needed {expected_type}, was given {config_val}")
     gateway = TimelineTrackerGateway(url)
 
-    tool = ToolThing(gateway, mm_conversion)
+    tool = TimelineTrackerCLI(gateway, mm_conversion)
     tool.main_loop()
     exit()
 
