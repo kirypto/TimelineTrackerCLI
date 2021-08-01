@@ -118,7 +118,11 @@ class MapView:
     _map_items: Set[_MapItem]
 
     def __init__(self) -> None:
-        self._figure = pyplot.figure(dpi=300, figsize=figaspect(0.5))
+        if pyplot.get_fignums():
+            self._figure: Figure = pyplot.gcf()
+            self._figure.clear()
+        else:
+            self._figure = pyplot.figure(dpi=300, figsize=figaspect(0.5))
         self._figure.subplots_adjust(wspace=0.25, left=0.1, right=0.95)
         self._axes_2d: Axes = self._figure.add_subplot(121)
         self._axes_3d: Axes3D = self._figure.add_subplot(122, projection="3d")
@@ -150,7 +154,7 @@ class MapView:
             if item.label:
                 offset = (map_y_high - map_y_low) / 100
                 self._axes_2d.text(avg(item_x_high, item_x_low), item_y_high + offset, item.label,
-                                   fontsize=4, ha="center", weight="light")
+                                   fontsize=3, ha="center", weight="light")
 
         self._axes_3d.view_init(elev=elevation, azim=azimuth)
         self._axes_3d.set_xlim3d(xmax=map_x_high, xmin=map_x_low)
