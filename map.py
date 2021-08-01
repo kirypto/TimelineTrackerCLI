@@ -28,11 +28,13 @@ class _MapItem(ABC):
     _span: Span
     _image: Image
     _colour: Colour
+    _label: str
 
-    def __init__(self, span: Span, *, image: Image = None, colour: Colour = Colours.Black) -> None:
+    def __init__(self, span: Span, *, image: Image = None, colour: Colour = Colours.Black, label: str = None) -> None:
         self._span = span
         self._image = image
         self._colour = colour
+        self._label = label
 
     @property
     def colour(self) -> Colour:
@@ -41,6 +43,10 @@ class _MapItem(ABC):
     @property
     def image(self) -> Optional[Image]:
         return self._image
+
+    @property
+    def label(self) -> str:
+        return self._label
 
     @property
     @abstractmethod
@@ -76,11 +82,11 @@ class CityMarker(_MapItem):
             ]
         return self._line_data
 
-    def __init__(self, span: Span, *, colour: Colour = Colours.Blue, image: Image = None) -> None:
+    def __init__(self, span: Span, *, colour: Colour = Colours.Blue, image: Image = None, label: str = None) -> None:
         if not is_color_like(colour):
             raise ValueError(f"Provided colour '{colour}' could not be interpreted")
         colour_mutated = _randomize_colour(colour)
-        super(CityMarker, self).__init__(span, colour=colour_mutated, image=image)
+        super(CityMarker, self).__init__(span, colour=colour_mutated, image=image, label=label)
         self._line_data = None
 
 
@@ -97,11 +103,11 @@ class BuildingMarker(_MapItem):
             )
         return self._line_data
 
-    def __init__(self, span: Span, *, colour: Colour = Colours.Green, image: Image = None) -> None:
+    def __init__(self, span: Span, *, colour: Colour = Colours.Green, image: Image = None, label: str = None) -> None:
         if not is_color_like(colour):
             raise ValueError(f"Provided colour '{colour}' could not be interpreted")
         colour_mutated = _randomize_colour(colour)
-        super(BuildingMarker, self).__init__(span, colour=colour_mutated, image=image)
+        super(BuildingMarker, self).__init__(span, colour=colour_mutated, image=image, label=label)
         self._line_data = None
 
 
@@ -132,12 +138,15 @@ class MapView:
 
     def render(self, *, elevation: int = 30, azimuth: int = -130) -> None:
         for item in sorted(self._map_items, key=_MapItem.sort_key("alt")):
+            (item_x_low, item_x_high), (item_y_low, item_y_high), _ = item.limits
             if item.image:
-                (item_x_low, item_x_high), (item_y_low, item_y_high), _ = item.limits
                 self._axes_2d.imshow(item.image, extent=[item_x_low, item_x_high, item_y_low, item_y_high])
             for x_data, y_data, z_data in item.line_data:
                 self._axes_3d.plot3D(x_data, y_data, z_data, color=item.colour)
                 self._axes_2d.plot(x_data, y_data, color=item.colour)
+            if item.label:
+                offset = (item_y_high - item_y_low) / 10
+                self._axes_2d.text(item_x_high, item_y_high + offset, item.label, fontsize=8)
 
         map_x_high, map_x_low, map_y_high, map_y_low, map_z_high, map_z_low = self._calculate_render_limits()
         self._axes_3d.view_init(elev=elevation, azim=azimuth)
