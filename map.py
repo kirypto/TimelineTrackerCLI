@@ -138,6 +138,8 @@ class MapView:
         self._map_items.clear()
 
     def render(self, *, elevation: int = 30, azimuth: int = -130) -> None:
+        map_x_high, map_x_low, map_y_high, map_y_low, map_z_high, map_z_low = self._calculate_render_limits()
+
         for item in sorted(self._map_items, key=_MapItem.sort_key("alt")):
             (item_x_low, item_x_high), (item_y_low, item_y_high), _ = item.limits
             if item.image:
@@ -146,11 +148,10 @@ class MapView:
                 self._axes_3d.plot3D(x_data, y_data, z_data, color=item.colour)
                 self._axes_2d.plot(x_data, y_data, color=item.colour)
             if item.label:
-                offset = (item_y_high - item_y_low) / 5
+                offset = (map_y_high - map_y_low) / 100
                 self._axes_2d.text(avg(item_x_high, item_x_low), item_y_high + offset, item.label,
                                    fontsize=4, ha="center", weight="light")
 
-        map_x_high, map_x_low, map_y_high, map_y_low, map_z_high, map_z_low = self._calculate_render_limits()
         self._axes_3d.view_init(elev=elevation, azim=azimuth)
         self._axes_3d.set_xlim3d(xmax=map_x_high, xmin=map_x_low)
         self._axes_3d.set_ylim3d(ymax=map_y_high, ymin=map_y_low)
