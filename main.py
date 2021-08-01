@@ -177,7 +177,7 @@ class TimelineTrackerCLI:
             other_ids = list(self.current_ids - {self.focus_id})
             index = 0
             while index < len(other_ids):
-                if index % (width // 40) == 0:
+                if index % (width // 50) == 0:
                     print("\n    ", end="")
                 print(other_ids[index], end="    ")
                 index += 1
