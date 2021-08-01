@@ -333,6 +333,10 @@ class ToolThing:
         map_view = MapView()
         reality = int(input("  Enter reality: ") or 0)
         continuum = TimeHelper.input_ymdh("  Enter continuum:")
+        image_key = "image-ld-url"
+        if "y" == input("  Advanced Options? (y/N) ").lower():
+            if "h" == input("    - Image quality: low or high? (L/h) ").lower():
+                image_key = "image-hd-url"
 
         entities_by_id: Dict[str, dict] = {}
         for entity_id in self.current_ids:
@@ -354,7 +358,7 @@ class ToolThing:
                     marker_class = CityMarker
                 else:
                     marker_class = BuildingMarker
-                image = get_image(entity["metadata"]["image-url"]) if "image-url" in entity["metadata"] else None
+                image = get_image(entity["metadata"][image_key]) if image_key in entity["metadata"] else None
                 map_view.add_item(marker_class(span, image=image, label=name))
             else:
                 print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as type {entity_type} is not supported")
