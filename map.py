@@ -119,6 +119,7 @@ class MapView:
 
     def __init__(self) -> None:
         self._figure = pyplot.figure(dpi=300, figsize=figaspect(0.5))
+        self._figure.subplots_adjust(wspace=0.25, left=0.1, right=0.95)
         self._axes_2d: Axes = self._figure.add_subplot(121)
         self._axes_3d: Axes3D = self._figure.add_subplot(122, projection="3d")
         self._axes_3d.tick_params(labelsize=5)
@@ -145,8 +146,9 @@ class MapView:
                 self._axes_3d.plot3D(x_data, y_data, z_data, color=item.colour)
                 self._axes_2d.plot(x_data, y_data, color=item.colour)
             if item.label:
-                offset = (item_y_high - item_y_low) / 10
-                self._axes_2d.text(item_x_high, item_y_high + offset, item.label, fontsize=8)
+                offset = (item_y_high - item_y_low) / 5
+                self._axes_2d.text(avg(item_x_high, item_x_low), item_y_high + offset, item.label,
+                                   fontsize=4, ha="center", weight="light")
 
         map_x_high, map_x_low, map_y_high, map_y_low, map_z_high, map_z_low = self._calculate_render_limits()
         self._axes_3d.view_init(elev=elevation, azim=azimuth)
