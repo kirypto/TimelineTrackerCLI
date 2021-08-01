@@ -341,6 +341,7 @@ class ToolThing:
 
         for entity_id, entity in entities_by_id.items():
             entity_type = get_entity_type(entity_id)
+            name = entity["name"]
             if entity_type == EntityType.LOCATION:
                 span = Span(entity["span"])
                 if reality not in span.reality:
@@ -354,11 +355,11 @@ class ToolThing:
                 else:
                     marker_class = BuildingMarker
                 image = get_image(entity["metadata"]["image-url"]) if "image-url" in entity["metadata"] else None
-                map_view.add_item(marker_class(span, image=image))
+                label = f"{name} ({entity['metadata']['population']})" if "population" in entity["metadata"] else name
+                map_view.add_item(marker_class(span, image=image, label=label))
             else:
                 print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as type {entity_type} is not supported")
-        map_view.render()
-        map_view.render(elevation=90, azimuth=-90)
+        map_view.render(elevation=30, azimuth=-130)
 
 
 def _main(*, url: Optional[str], mm_conversion: Optional[float]) -> NoReturn:
