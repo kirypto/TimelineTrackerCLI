@@ -355,8 +355,7 @@ class ToolThing:
                 else:
                     marker_class = BuildingMarker
                 image = get_image(entity["metadata"]["image-url"]) if "image-url" in entity["metadata"] else None
-                label = f"{name} ({entity['metadata']['population']})" if "population" in entity["metadata"] else name
-                map_view.add_item(marker_class(span, image=image, label=label))
+                map_view.add_item(marker_class(span, image=image, label=name))
             else:
                 print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as type {entity_type} is not supported")
         map_view.render(elevation=30, azimuth=-130)
