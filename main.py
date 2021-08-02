@@ -116,13 +116,16 @@ class _Selection:
             "reality": self._reality,
             "current_ids": self._current_ids,
         }
-        selection_cache_file = Path(__file__).parent.joinpath("__selection_cache__")
+        selection_cache_file = self._get_cache_file()
         selection_cache_file.write_text(dumps(selection, indent=2), encoding="utf8")
 
-    @staticmethod
-    def _load_cached_selection() -> Dict[str, Any]:
-        selection_cache_file = Path(__file__).parent.joinpath("__selection_cache__")
+    def _load_cached_selection(self) -> Dict[str, Any]:
+        selection_cache_file = self._get_cache_file()
         return loads(selection_cache_file.read_text(encoding="utf8")) if selection_cache_file.exists() else {}
+
+    @staticmethod
+    def _get_cache_file() -> Path:
+        return Path(__file__).parent.joinpath("__local_cache__/__selection_cache__")
 
 
 class TimelineTrackerCLI:
