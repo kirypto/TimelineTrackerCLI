@@ -142,6 +142,9 @@ class MapView:
         self._map_items.clear()
 
     def render(self, *, elevation: int = 30, azimuth: int = -130) -> None:
+        if not self._map_items:
+            print(" !! Politely refusing to render a map with no items.")
+            return
         map_x_high, map_x_low, map_y_high, map_y_low, map_z_high, map_z_low = self._calculate_render_limits()
 
         for item in sorted(self._map_items, key=_MapItem.sort_key("alt")):
