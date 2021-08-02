@@ -372,28 +372,32 @@ class TimelineTrackerCLI:
     def _handle_modify_entity(self) -> None:
         entity_id = self.focus_id
         entity_type = self.focus_entity_type
+        patch_all_entities = len(self.current_ids) > 1 and "a" == input("  Modify FOCUS entity or ALL entities? (F/a) ")
         patches = []
         patch_operation_choices = ", ".join([f"{op.display_text}={op.value}" for op in sorted(_PatchOp, key=lambda e: e.value)])
         while True:
-            op_raw = input(f"Input patch 'op' ({patch_operation_choices}, or leave blank to continue): ")
+            op_raw = input(f"  Input patch 'op' ({patch_operation_choices}, or leave blank to continue): ")
             if op_raw == "":
                 break
             patch_op: _PatchOp = _PatchOp(int(op_raw))
             patch = {
                 "op": patch_op.name.lower(),
-                "path": input("Input patch 'path': "),
             }
-            if patch_op in [_PatchOp.ADD, _PatchOp.REPLACE, _PatchOp.TEST]:
-                patch["value"] = input_multi_line("Input patch 'value': ")
             if patch_op in [_PatchOp.MOVE, _PatchOp.COPY]:
-                patch["from"] = input("Input patch 'from': ")
+                patch["from"] = input("  Input patch 'from': ")
+            patch["path"] = input("  Input patch 'path': ")
+            if patch_op in [_PatchOp.ADD, _PatchOp.REPLACE, _PatchOp.TEST]:
+                patch["value"] = input_multi_line("  Input patch 'value': ")
             patches.append(patch)
         if not patches:
             print("Nothing to do.")
             return
 
-        modified_entity = self._gateway.patch_entity(entity_type.value, entity_id, patches)
-        print(dumps(modified_entity, indent=2))
+        to_modify = self.current_ids if patch_all_entities else [entity_id]
+        for entity_id in to_modify:
+            print(f"  Modifying {entity_id}:")
+            modified_entity = self._gateway.patch_entity(entity_type.value, entity_id, patches)
+            print(dumps(modified_entity, indent=2), end="\n-----\n")
 
     def _handle_calculate_age(self) -> None:
         if self.focus_entity_type is not EntityType.TRAVELER:
