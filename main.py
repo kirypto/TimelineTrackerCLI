@@ -7,7 +7,7 @@ from typing import Dict, NoReturn, Optional, Any, Set, List, Union, Tuple, Itera
 
 from map import MapView, CityMarker, BuildingMarker
 from timeline_tracker_gateway import TimelineTrackerGateway
-from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict, get_entity_type, Span, get_image
+from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict, get_entity_type, Span, get_image, Range
 
 
 class _Command(Enum):
@@ -43,6 +43,8 @@ class _PatchOp(Enum):
 
 class _Selection:
     _unit_scale: Optional[float]
+    _reality: int
+    _continuum: Range
     _current_ids: List[str]
 
     @property
@@ -50,8 +52,26 @@ class _Selection:
         return self._unit_scale
 
     @unit_scale.setter
-    def unit_scale(self, scale: float) -> None:
-        self._unit_scale = scale
+    def unit_scale(self, value: float) -> None:
+        self._unit_scale = value
+        self._update_cached_selection()
+
+    @property
+    def reality(self) -> int:
+        return self._reality
+
+    @reality.setter
+    def reality(self, value: int) -> None:
+        self._reality = value
+        self._update_cached_selection()
+
+    @property
+    def continuum(self) -> Range:
+        return self._continuum
+
+    @continuum.setter
+    def continuum(self, value: Range) -> None:
+        self._continuum = value
         self._update_cached_selection()
 
     @property
@@ -78,14 +98,21 @@ class _Selection:
             self._current_ids = list(value)
         self._update_cached_selection()
 
-    def __init__(self, *, unit_scale: float = None, current_ids: List[str] = None) -> None:
+    def __init__(self, *, unit_scale: float = None, current_ids: List[str] = None, continuum: Range = None, reality: int = None) -> None:
         cached_selection = self._load_cached_selection()
         self._unit_scale = unit_scale or cached_selection.get("unit_scale", None) or None
+        self._continuum = continuum or Range(*cached_selection["continuum"].values()) if "continuum" in cached_selection else Range(0)
+        self._reality = reality if reality is not None else cached_selection.get("reality", 0)
         self._current_ids = current_ids or cached_selection.get("current_ids", None) or []
 
     def _update_cached_selection(self) -> None:
         selection = {
             "unit_scale": self._unit_scale,
+            "continuum": {
+                "low": self._continuum.low,
+                "high": self._continuum.high,
+            },
+            "reality": self._reality,
             "current_ids": self._current_ids,
         }
         selection_cache_file = Path(__file__).parent.joinpath("__selection_cache__")
@@ -108,6 +135,22 @@ class TimelineTrackerCLI:
     @unit_scale.setter
     def unit_scale(self, scale: float) -> None:
         self._selection.unit_scale = scale
+
+    @property
+    def reality(self) -> int:
+        return self._selection.reality
+
+    @reality.setter
+    def reality(self, value: int) -> None:
+        self._selection.reality = value
+
+    @property
+    def continuum(self) -> Range:
+        return self._selection.continuum
+
+    @continuum.setter
+    def continuum(self, value: Range) -> None:
+        self._selection.continuum = value
 
     @property
     def focus_id(self) -> str:
@@ -386,12 +429,19 @@ class TimelineTrackerCLI:
 
     def _handle_render_map(self) -> None:
         map_view = MapView()
-        reality = int(input("  Enter reality: ") or 0)
-        continuum = TimeHelper.input_ymdh("  Enter continuum:")
+        reality = self._selection.reality
+        continuum = self.continuum
         image_key = "image-ld-url"
-        if "y" == input("  Advanced Options? (y/N) ").lower():
+        print(f" Render Settings: continuum={continuum}, reality={reality}, imgQuality=Low")
+        if "y" == input("  Modify Settings? (y/N) ").lower():
             if "h" == input("    - Image quality: low or high? (L/h) ").lower():
                 image_key = "image-hd-url"
+            r = input(f"    - Enter reality: ({reality}) ")
+            reality = self.reality = int(r) if r != "" else reality
+            if "y" == input(f"    - Modify continuum? (y/N) ").lower():
+                continuum_low = TimeHelper.input_ymdh(f"    - Enter continuum low: ")
+                continuum_high = TimeHelper.input_ymdh(f"    - Enter continuum high: ")
+                continuum = self.continuum = Range(continuum_low, continuum_high)
 
         entities_by_id: Dict[str, dict] = {}
         for entity_id in self.current_ids:
@@ -406,7 +456,7 @@ class TimelineTrackerCLI:
                 if reality not in span.reality:
                     print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as it is not in reality {reality}")
                     continue
-                if span.continuum.low > continuum or span.continuum.high < continuum:
+                if span.continuum.low > continuum.high or span.continuum.high < continuum.low:
                     print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as it is not in continuum {continuum}")
                     continue
                 if len({"city", "town", "capital"}.intersection(entity["tags"])):
