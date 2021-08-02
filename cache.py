@@ -35,6 +35,10 @@ class Cache:
     def get3(self, method: Callable[[TArg1, TArg2, TArg3], TReturn], arg1: TArg1, arg2: TArg2, arg3: TArg3) -> Optional[TReturn]:
         return self._inner_get(method, arg1, arg2, arg3)
 
+    def flush(self) -> None:
+        self._memory_cache = {}
+        self._expirations = {}
+
     def _inner_get(self, method: Callable[[Any], Any], *args: Any) -> Any:
         self._check_invalidations()
         item_hash = hash((method, *args))
@@ -90,6 +94,15 @@ def _test():
     result = cache.get2(foo, "10", 5)
     ensure("Check cache get result on miss due to expiry", 15, result)
     ensure("Check method passed to cache actually called on miss due to expiry", 2, test_data["foo_call_count"])
+
+    cache.flush()
+    result = cache.get2(foo, "10", 5)
+    ensure("Check cache get result on miss due to flush", 15, result)
+    ensure("Check method passed to cache actually called on miss due to flush", 3, test_data["foo_call_count"])
+
+    result = cache.get2(foo, "4", 8)
+    ensure("Check cache get result on miss due to differing args", 12, result)
+    ensure("Check method passed to cache actually called on miss due to differing args", 4, test_data["foo_call_count"])
 
     success_count = test_data["test_successes"]
     failure_count = test_data["test_failures"]
