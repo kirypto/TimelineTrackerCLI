@@ -137,6 +137,9 @@ class Range:
         self._low = min(limits)
         self._high = max(limits)
 
+    def __str__(self) -> str:
+        return f"[{round(self._low, 3)},{round(self._high, 3)}]"
+
 
 class Span:
     _lat: Range
