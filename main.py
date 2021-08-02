@@ -16,10 +16,11 @@ class _Command(Enum):
     GET_ENTITY_DETAIL = 2
     CREATE_ENTITY = 3
     MODIFY_ENTITY = 4
-    GET_TIMELINE = 5
+    TRANSLATE_ENTITY = 5
+    GET_TIMELINE = 6
     SET_CURRENT_ID = 10
     CHANGE_UNIT_SCALE = 11
-    TRANSLATE_TIME = 12
+    CONVERT_TIME = 12
     CALCULATE_AGE = 13
     RENDER_MAP = 14
 
@@ -192,7 +193,9 @@ class TimelineTrackerCLI:
                     self._handle_find_entity(input_entity_type())
                 elif command == _Command.MODIFY_ENTITY:
                     self._handle_modify_entity()
-                elif command == _Command.TRANSLATE_TIME:
+                elif command == _Command.TRANSLATE_ENTITY:
+                    self._handle_translate_entity()
+                elif command == _Command.CONVERT_TIME:
                     time = float(input("Input Raw Time: "))
                     year, month, day, hour, minute = TimeHelper.convert_time_to_ymdhm(time)
                     print(f"{year}y, {month}m, {day}d, {hour}h, {minute}m")
@@ -371,7 +374,6 @@ class TimelineTrackerCLI:
 
     def _handle_modify_entity(self) -> None:
         entity_id = self.focus_id
-        entity_type = self.focus_entity_type
         patch_all_entities = len(self.current_ids) > 1 and "a" == input("  Modify FOCUS entity or ALL entities? (F/a) ")
         patches = []
         patch_operation_choices = ", ".join([f"{op.display_text}={op.value}" for op in sorted(_PatchOp, key=lambda e: e.value)])
@@ -396,6 +398,42 @@ class TimelineTrackerCLI:
         to_modify = self.current_ids if patch_all_entities else [entity_id]
         for entity_id in to_modify:
             print(f"  Modifying {entity_id}:")
+            modified_entity = self._gateway.patch_entity(get_entity_type(entity_id).value, entity_id, patches)
+            print(dumps(modified_entity, indent=2), end="\n-----\n")
+
+    def _handle_translate_entity(self) -> None:
+        entity_id = self.focus_id
+        patch_all_entities = len(self.current_ids) > 1 and "a" == input("  Modify FOCUS entity or ALL entities? (F/a) ")
+        latitude_delta = float(input("  Translate latitude by: (0) ") or 0)
+        longitude_delta = float(input("  Translate longitude by: (0) ") or 0)
+        altitude_delta = float(input("  Translate altitude by: (0) ") or 0)
+        to_modify = self.current_ids if patch_all_entities else [entity_id]
+        for entity_id in to_modify:
+            print(f"  Modifying {entity_id}:")
+            entity_type = get_entity_type(entity_id)
+            if entity_type == EntityType.LOCATION:
+                entity = self._gateway.get_entity(entity_type.value, entity_id)
+                span = Span(entity["span"])
+                patches = []
+                if latitude_delta != 0:
+                    patches.extend([
+                        {"op": "replace", "path": "/span/latitude/low", "value": span.latitude.low + latitude_delta},
+                        {"op": "replace", "path": "/span/latitude/high", "value": span.latitude.high + latitude_delta},
+                    ])
+                if longitude_delta != 0:
+                    patches.extend([
+                        {"op": "replace", "path": "/span/longitude/low", "value": span.longitude.low + longitude_delta},
+                        {"op": "replace", "path": "/span/longitude/high", "value": span.longitude.high + longitude_delta},
+                    ])
+                if altitude_delta != 0:
+                    patches.extend([
+                        {"op": "replace", "path": "/span/altitude/low", "value": span.altitude.low + altitude_delta},
+                        {"op": "replace", "path": "/span/altitude/high", "value": span.altitude.high + altitude_delta},
+                    ])
+            else:
+                print("  Skipping, entity type is not supported")
+                continue
+
             modified_entity = self._gateway.patch_entity(entity_type.value, entity_id, patches)
             print(dumps(modified_entity, indent=2), end="\n-----\n")
 
