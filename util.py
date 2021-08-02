@@ -41,12 +41,13 @@ class TimeHelper:
                 minute / TimeHelper.MINUTES_PER_HOUR / TimeHelper.HOURS_PER_DAY)
 
     @staticmethod
-    def input_ymdh(prompt) -> float:
+    def input_ymdh(prompt, *, indent: int = 6) -> float:
         print(prompt)
-        year_portion = float(input("      year=") or 0)
-        # month_portion = float(input("      month=") or 0)
-        day_portion = float(input("      day=") or 0)
-        hour_portion = float(input("      hour=") or 0)
+        spacing = "".ljust(indent, " ")
+        year_portion = float(input(f"{spacing}year=") or 0)
+        # month_portion = float(input(f"{spacing}month=") or 0)
+        day_portion = float(input(f"{spacing}day=") or 0)
+        hour_portion = float(input(f"{spacing}hour=") or 0)
         # if month_portion != 0:
         #     raise NotImplementedError("Month calculation not yet supported")
         return TimeHelper.convert_time_from_ymdhm(year_portion, 0, day_portion, hour_portion)
