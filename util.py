@@ -6,6 +6,8 @@ from typing import Tuple, Union, Type, List, TypeVar, Dict, Set, Any, Optional
 from PIL.Image import Image, open as img_open
 from requests import get, RequestException
 
+from cache import with_cache
+
 T = TypeVar("T")
 TK = TypeVar("TK")
 TV = TypeVar("TV")
@@ -179,6 +181,10 @@ class Span:
         self._rea = rea if rea is not None else span["reality"]
 
 
+_MILLIS_PER_DAY = 1000 * 60 * 60 * 24
+
+
+@with_cache("getImage", file=True, timeout_ms=_MILLIS_PER_DAY)
 def get_image(url: str) -> Optional[Image]:
     try:
         return img_open(get(url, stream=True).raw)
