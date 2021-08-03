@@ -3,7 +3,7 @@ from typing import Dict, Any, List, Union
 
 import requests
 
-from cache import Cache, with_cache
+from cache import Cache
 
 
 class TimelineTrackerGateway:
@@ -18,6 +18,7 @@ class TimelineTrackerGateway:
         response = requests.post(url, json=entity_json)
         if response.status_code != HTTPStatus.CREATED:
             raise RuntimeError(f"Failed to post entity: {response.text}")
+        self._cache.flush()
         return response.json()
 
     def get_entity(self, resource: str, entity_id: str) -> Dict[str, Any]:
@@ -32,14 +33,7 @@ class TimelineTrackerGateway:
         return response.json()
 
     def get_entities(self, resource: str, **filter_kwargs: Dict[str, str]) -> List[str]:
-        url = f"{self._url}/api/{resource}s"
-        if filter_kwargs:
-            url += "?"
-            url += "&".join([f"{key}={val}" for key, val in filter_kwargs.items()])
-        response = requests.get(url)
-        if response.status_code != HTTPStatus.OK:
-            raise RuntimeError(f"Failed to get entities: {response.text}")
-        return response.json()
+        return self._cache.get(self._inner_get_entities, resource, **filter_kwargs)
 
     def get_timeline(self, resource: str, entity_id: str, **filter_kwargs: Dict[str, str]) -> List[Union[str, dict]]:
         url = f"{self._url}/api/{resource}/{entity_id}/timeline"
@@ -51,9 +45,22 @@ class TimelineTrackerGateway:
             raise RuntimeError(f"Failed to get timeline: {response.text}")
         return response.json()
 
+    def invalidate_caches(self) -> None:
+        self._cache.flush()
+
     def _inner_get_entity(self, resource: str, entity_id: str) -> Dict[str, Any]:
         url = f"{self._url}/api/{resource}/{entity_id}"
         response = requests.get(url)
         if response.status_code != HTTPStatus.OK:
             raise RuntimeError(f"Failed to get entity: {response.text}")
+        return response.json()
+
+    def _inner_get_entities(self, resource: str, **filter_kwargs: Dict[str, str]) -> List[str]:
+        url = f"{self._url}/api/{resource}s"
+        if filter_kwargs:
+            url += "?"
+            url += "&".join([f"{key}={val}" for key, val in filter_kwargs.items()])
+        response = requests.get(url)
+        if response.status_code != HTTPStatus.OK:
+            raise RuntimeError(f"Failed to get entities: {response.text}")
         return response.json()
