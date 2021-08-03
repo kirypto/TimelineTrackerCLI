@@ -18,8 +18,8 @@ class Cache:
     _name: str
     _file_path: Optional[Path]
     _timeout_ms: float
-    _memory_cache: Dict[int, Any]
-    _expirations: Dict[int, datetime]
+    _memory_cache: Dict[str, Any]
+    _expirations: Dict[str, datetime]
 
     def __init__(self, name: str, *, file: bool = False, timeout_ms: float = _MILLIS_PER_HOUR) -> None:
         if not match(r"^[a-zA-Z0-9]+$", name):
@@ -47,51 +47,56 @@ class Cache:
         self._expirations = {}
 
     def invalidate(self, method: Callable, *args: Any) -> None:
-        item_hash = hash((method, *args))
+        item_key = self._get_item_key(method, *args)
         self._update_from_file_cache()
-        if item_hash in self._expirations:
-            self._expirations.pop(item_hash)
-            self._memory_cache.pop(item_hash)
+        if item_key in self._expirations:
+            self._expirations.pop(item_key)
+            self._memory_cache.pop(item_key)
             self._write_to_file_cache()
 
     def _inner_get(self, method: Callable[[Any], Any], *args: Any) -> Any:
         self._check_memory_invalidations()
-        item_hash = hash((method, *args))
+        item_key = self._get_item_key(method, *args)
 
-        if item_hash not in self._memory_cache:
+        if item_key not in self._memory_cache:
             self._update_from_file_cache()
 
-        if item_hash not in self._memory_cache:
-            self._store(item_hash, method(*args))
+        if item_key not in self._memory_cache:
+            self._store(item_key, method(*args))
 
-        return self._memory_cache[item_hash]
+        return self._memory_cache[item_key]
+
+    @staticmethod
+    def _get_item_key(method: Callable, *args) -> str:
+        item_key = ';;;'.join([str(x) for x in (method.__name__, *args)])
+        return item_key
 
     def _check_memory_invalidations(self) -> None:
         now = datetime.now()
-        for item_hash, expiration_time in list(self._expirations.items()):
+        for item_key, expiration_time in list(self._expirations.items()):
             if expiration_time < now:
-                self._expirations.pop(item_hash)
-                self._memory_cache.pop(item_hash)
+                self._expirations.pop(item_key)
+                self._memory_cache.pop(item_key)
 
-    def _store(self, item_hash: int, item: Any) -> None:
+    def _store(self, item_key: str, item: Any) -> None:
         self._update_from_file_cache()
-        self._memory_cache[item_hash] = item
-        self._expirations[item_hash] = datetime.now() + timedelta(milliseconds=self._timeout_ms)
+        self._memory_cache[item_key] = item
+        self._expirations[item_key] = datetime.now() + timedelta(milliseconds=self._timeout_ms)
         self._write_to_file_cache()
 
     def _update_from_file_cache(self) -> None:
-        if self._file_path is None:
+        if self._file_path is None or not self._file_path.exists():
             return
         now = datetime.now()
         with open(self._file_path, "rb") as cache_file:
             cache_contents = pickle.load(cache_file)
-            cache_items: Dict[int, Any] = cache_contents["items"]
-            cache_expirations: Dict[int, datetime] = cache_contents["expirations"]
-            for item_hash, expiration_time in cache_expirations.items():
+            cache_items: Dict[str, Any] = cache_contents["items"]
+            cache_expirations: Dict[str, datetime] = cache_contents["expirations"]
+            for item_key, expiration_time in cache_expirations.items():
                 time_now = expiration_time > now
-                if time_now and (item_hash not in self._expirations or expiration_time > self._expirations[item_hash]):
-                    self._expirations[item_hash] = expiration_time
-                    self._memory_cache[item_hash] = cache_items[item_hash]
+                if time_now and (item_key not in self._expirations or expiration_time > self._expirations[item_key]):
+                    self._expirations[item_key] = expiration_time
+                    self._memory_cache[item_key] = cache_items[item_key]
 
     def _write_to_file_cache(self) -> None:
         if self._file_path is None:
