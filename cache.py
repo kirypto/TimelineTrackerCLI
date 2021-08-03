@@ -11,6 +11,7 @@ TArg1 = TypeVar("TArg1")
 TArg2 = TypeVar("TArg2")
 TArg3 = TypeVar("TArg3")
 TReturn = TypeVar("TReturn")
+TCallable = TypeVar("TCallable")
 
 
 class Cache:
@@ -29,14 +30,17 @@ class Cache:
         self._memory_cache = {}
         self._expirations = {}
 
-    def get(self, method: Callable[[TArg1], TReturn], arg1: TArg1) -> Optional[TReturn]:
+    def get(self, method: Callable[[TArg1], TReturn], arg1: TArg1) -> TReturn:
         return self._inner_get(method, arg1)
 
-    def get2(self, method: Callable[[TArg1, TArg2], TReturn], arg1: TArg1, arg2: TArg2) -> Optional[TReturn]:
+    def get2(self, method: Callable[[TArg1, TArg2], TReturn], arg1: TArg1, arg2: TArg2) -> TReturn:
         return self._inner_get(method, arg1, arg2)
 
-    def get3(self, method: Callable[[TArg1, TArg2, TArg3], TReturn], arg1: TArg1, arg2: TArg2, arg3: TArg3) -> Optional[TReturn]:
+    def get3(self, method: Callable[[TArg1, TArg2, TArg3], TReturn], arg1: TArg1, arg2: TArg2, arg3: TArg3) -> TReturn:
         return self._inner_get(method, arg1, arg2, arg3)
+
+    def get_multi(self, method: Callable, *args: Any) -> Any:
+        return self._inner_get(method, *args)
 
     def flush(self) -> None:
         self._memory_cache = {}
@@ -100,12 +104,23 @@ class Cache:
             pickle.dump(cache_contents, cache_file, protocol=pickle.HIGHEST_PROTOCOL)
 
 
+def with_cache(name: str, *, file: bool = False, timeout_ms: float = _MILLIS_PER_HOUR):
+    def caching_decorator(function_to_wrap_in_cache):
+        cache = Cache(name, file=file, timeout_ms=timeout_ms)
+
+        def cache_wrapped_function(*args):
+            return cache.get_multi(function_to_wrap_in_cache, *args)
+        return cache_wrapped_function
+    return caching_decorator
+
+
 def _test():
     print("running tests for Cache")
     test_data = {
         "test_successes": 0,
         "test_failures": 0,
         "foo_call_count": 0,
+        "bar_call_count": 0,
     }
 
     def ensure(message: str, expected: Any, actual: Any) -> None:
@@ -171,6 +186,18 @@ def _test():
     file_cache1.invalidate(foo, "17", 4)
     file_cache1.get2(foo, "17", 4)
     ensure("Check method called on file miss due to invalidation", 2, test_data["foo_call_count"])
+
+    @with_cache("testBar")
+    def bar(val: int) -> int:
+        test_data["bar_call_count"] += 1
+        return val + 1
+
+    result = bar(4)
+    ensure("Check cache get result on miss", 5, result)
+    ensure("Check method actually called on miss", 1, test_data["bar_call_count"])
+    result = bar(4)
+    ensure("Check cache get result on miss", 5, result)
+    ensure("Check method actually called on miss", 1, test_data["bar_call_count"])
 
     success_count = test_data["test_successes"]
     failure_count = test_data["test_failures"]
