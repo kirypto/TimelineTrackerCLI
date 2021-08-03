@@ -185,9 +185,9 @@ _MILLIS_PER_DAY = 1000 * 60 * 60 * 24
 
 
 @with_cache("getImage", file=True, timeout_ms=_MILLIS_PER_DAY)
-def get_image(url: str) -> Optional[Image]:
+def get_image(url: str) -> Image:
     try:
         return img_open(get(url, stream=True).raw)
     except RequestException as e:
         print(f"  !! Failed to retrieve image from url '{url}': {e}")
-        return None
+        raise RuntimeError(f"Failed to retrieve image from url '{url}'")

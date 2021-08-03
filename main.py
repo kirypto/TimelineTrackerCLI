@@ -508,7 +508,13 @@ class TimelineTrackerCLI:
                     marker_class = CityMarker
                 else:
                     marker_class = BuildingMarker
-                image = get_image(entity["metadata"][image_key]) if image_key in entity["metadata"] else None
+                if image_key in entity["metadata"]:
+                    try:
+                        image = get_image(entity["metadata"][image_key])
+                    except RuntimeError:
+                        image = None
+                else:
+                    image = None
                 map_view.add_item(marker_class(span, image=image, label=name))
             else:
                 print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as type {entity_type} is not supported")
