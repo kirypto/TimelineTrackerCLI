@@ -42,6 +42,14 @@ class Cache:
         self._memory_cache = {}
         self._expirations = {}
 
+    def invalidate(self, method: Callable, *args: Any) -> None:
+        item_hash = hash((method, *args))
+        self._update_from_file_cache()
+        if item_hash in self._expirations:
+            self._expirations.pop(item_hash)
+            self._memory_cache.pop(item_hash)
+            self._write_to_file_cache()
+
     def _inner_get(self, method: Callable[[Any], Any], *args: Any) -> Any:
         self._check_memory_invalidations()
         item_hash = hash((method, *args))
@@ -155,6 +163,14 @@ def _test():
     result = file_cache2.get2(foo, "25", 15)
     ensure("Check file cache get result on file miss due to expiry", 40, result)
     ensure("Check method not called on file miss due to expiry", 3, test_data["foo_call_count"])
+
+    file_cache1.flush()
+    file_cache2.flush()
+    test_data["foo_call_count"] = 0
+    file_cache1.get2(foo, "17", 4)
+    file_cache1.invalidate(foo, "17", 4)
+    file_cache1.get2(foo, "17", 4)
+    ensure("Check method called on file miss due to invalidation", 2, test_data["foo_call_count"])
 
     success_count = test_data["test_successes"]
     failure_count = test_data["test_failures"]
