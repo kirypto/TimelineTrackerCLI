@@ -30,45 +30,45 @@ class Cache:
         self._memory_cache = {}
         self._expirations = {}
 
-    def get(self, method: Callable[[TArg1], TReturn], arg1: TArg1) -> TReturn:
-        return self._inner_get(method, arg1)
+    def get(self, method: Callable[[TArg1], TReturn], arg1: TArg1, **kwargs) -> TReturn:
+        return self._inner_get(method, arg1, **kwargs)
 
-    def get2(self, method: Callable[[TArg1, TArg2], TReturn], arg1: TArg1, arg2: TArg2) -> TReturn:
-        return self._inner_get(method, arg1, arg2)
+    def get2(self, method: Callable[[TArg1, TArg2], TReturn], arg1: TArg1, arg2: TArg2, **kwargs) -> TReturn:
+        return self._inner_get(method, arg1, arg2, **kwargs)
 
-    def get3(self, method: Callable[[TArg1, TArg2, TArg3], TReturn], arg1: TArg1, arg2: TArg2, arg3: TArg3) -> TReturn:
-        return self._inner_get(method, arg1, arg2, arg3)
+    def get3(self, method: Callable[[TArg1, TArg2, TArg3], TReturn], arg1: TArg1, arg2: TArg2, arg3: TArg3, **kwargs) -> TReturn:
+        return self._inner_get(method, arg1, arg2, arg3, **kwargs)
 
-    def get_multi(self, method: Callable, *args: Any) -> Any:
-        return self._inner_get(method, *args)
+    def get_multi(self, method: Callable, *args: Any, **kwargs) -> Any:
+        return self._inner_get(method, *args, **kwargs)
 
     def flush(self) -> None:
         self._memory_cache = {}
         self._expirations = {}
 
-    def invalidate(self, method: Callable, *args: Any) -> None:
-        item_key = self._get_item_key(method, *args)
+    def invalidate(self, method: Callable, *args: Any, **kwargs) -> None:
+        item_key = self._get_item_key(method, *args, **kwargs)
         self._update_from_file_cache()
         if item_key in self._expirations:
             self._expirations.pop(item_key)
             self._memory_cache.pop(item_key)
             self._write_to_file_cache()
 
-    def _inner_get(self, method: Callable[[Any], Any], *args: Any) -> Any:
+    def _inner_get(self, method: Callable[[Any], Any], *args: Any, **kwargs) -> Any:
         self._check_memory_invalidations()
-        item_key = self._get_item_key(method, *args)
+        item_key = self._get_item_key(method, *args, **kwargs)
 
         if item_key not in self._memory_cache:
             self._update_from_file_cache()
 
         if item_key not in self._memory_cache:
-            self._store(item_key, method(*args))
+            self._store(item_key, method(*args, **kwargs))
 
         return self._memory_cache[item_key]
 
     @staticmethod
-    def _get_item_key(method: Callable, *args) -> str:
-        item_key = ';;;'.join([str(x) for x in (method.__name__, *args)])
+    def _get_item_key(method: Callable, *args, **kwargs) -> str:
+        item_key = ';;;'.join([str(x) for x in (method.__name__, *args, *kwargs.keys(), *kwargs.values())])
         return item_key
 
     def _check_memory_invalidations(self) -> None:
@@ -131,6 +131,7 @@ def _test():
         "test_failures": 0,
         "foo_call_count": 0,
         "bar_call_count": 0,
+        "baz_call_count": 0,
     }
 
     def ensure(message: str, expected: Any, actual: Any) -> None:
@@ -205,9 +206,35 @@ def _test():
     result = bar(4)
     ensure("Check cache get result on miss", 5, result)
     ensure("Check method actually called on miss", 1, test_data["bar_call_count"])
+
     result = bar(4)
     ensure("Check cache get result on miss", 5, result)
     ensure("Check method actually called on miss", 1, test_data["bar_call_count"])
+
+    def baz(val: int, a: int = 0, b: int = 0):
+        test_data["baz_call_count"] += 1
+        return val + a - b
+
+    cache = Cache("testBaz")
+    result = cache.get(baz, 12)
+    ensure("Check cache get result on miss", 12, result)
+    ensure("Check method actually called on miss", 1, test_data["baz_call_count"])
+
+    result = cache.get(baz, 12, a=1)
+    ensure("Check cache get result on miss", 13, result)
+    ensure("Check method actually called on miss", 2, test_data["baz_call_count"])
+
+    result = cache.get(baz, 12, b=1)
+    ensure("Check cache get result on miss", 11, result)
+    ensure("Check method actually called on miss", 3, test_data["baz_call_count"])
+
+    result = cache.get(baz, 12, a=1, b=1)
+    ensure("Check cache get result on miss", 12, result)
+    ensure("Check method actually called on miss", 4, test_data["baz_call_count"])
+
+    result = cache.get(baz, 12, a=1, b=1)
+    ensure("Check cache get result on hit", 12, result)
+    ensure("Check method not called on hit", 4, test_data["baz_call_count"])
 
     success_count = test_data["test_successes"]
     failure_count = test_data["test_failures"]
