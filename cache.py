@@ -109,12 +109,17 @@ class Cache:
             pickle.dump(cache_contents, cache_file, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-def with_cache(name: str, *, file: bool = False, timeout_ms: float = _MILLIS_PER_HOUR):
+def with_cache(name: Optional[str] = None, *, file: bool = False, timeout_ms: float = _MILLIS_PER_HOUR, cache: Cache = None):
+    if cache is not None and any([x is not None for x in (name, file, timeout_ms)]):
+        raise ValueError(f"Decorator with_cache cannot be provided any other arguments when provided a {Cache.__name__} object")
+    if cache is None and name is None:
+        raise TypeError(f"Decorator with_cache missing 1 required argument: either 'name' or 'cache'")
+
     def caching_decorator(function_to_wrap_in_cache):
-        cache = Cache(name, file=file, timeout_ms=timeout_ms)
+        wrapping_cache = cache if cache is not None else Cache(name, file=file, timeout_ms=timeout_ms)
 
         def cache_wrapped_function(*args):
-            return cache.get_multi(function_to_wrap_in_cache, *args)
+            return wrapping_cache.get_multi(function_to_wrap_in_cache, *args)
         return cache_wrapped_function
     return caching_decorator
 
