@@ -11,6 +11,7 @@ from cache import with_cache
 T = TypeVar("T")
 TK = TypeVar("TK")
 TV = TypeVar("TV")
+TE = TypeVar("TE", bound=Enum)
 
 
 class TimeHelper:
@@ -191,3 +192,13 @@ def get_image(url: str) -> Image:
     except RequestException as e:
         print(f"  !! Failed to retrieve image from url '{url}': {e}")
         raise RuntimeError(f"Failed to retrieve image from url '{url}'")
+
+
+def input_enum(enum_type: Type[TE], prompt: str = "Select from", *, indent: int = 2) -> TE:
+    indent_spacing = "".ljust(indent)
+    sorted_enum_type = sorted(enum_type, key=lambda e: e.value)
+    choices = ";   ".join([f"{e.value}. {e.name}" for e in sorted_enum_type])
+    default_choice = [e.value for e in sorted_enum_type][0]
+    raw_choice = input(f"{indent_spacing}{prompt}:   {choices}: ({default_choice}) ")
+    choice = enum_type(type(default_choice)(raw_choice) if raw_choice != "" else default_choice)
+    return choice
