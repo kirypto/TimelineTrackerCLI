@@ -7,7 +7,8 @@ from typing import Dict, NoReturn, Optional, Any, Set, List, Union, Tuple, Itera
 
 from map import MapView, CityMarker, BuildingMarker
 from timeline_tracker_gateway import TimelineTrackerGateway
-from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict, get_entity_type, Span, get_image, Range
+from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict, get_entity_type, Span, get_image, Range, \
+    input_enum
 
 
 class _Command(Enum):
@@ -94,9 +95,13 @@ class _Selection:
         if type(value) is tuple:
             value: Tuple[str, Iterable[str]]
             focus_id, other_ids = value
-            self._current_ids = [focus_id, *other_ids]
         else:
-            self._current_ids = list(value)
+            all_ids = list(value)
+            focus_id = all_ids[0]
+            other_ids = all_ids[1:]
+        other_ids = set(other_ids)
+        other_ids.remove(focus_id)
+        self._current_ids = [focus_id, *other_ids]
         self._update_cached_selection()
 
     def __init__(self, *, unit_scale: float = None, current_ids: List[str] = None, continuum: Range = None, reality: int = None) -> None:
@@ -329,9 +334,11 @@ class TimelineTrackerCLI:
         self.current_ids = {entity["id"]}
 
     def _handle_find_entity(self, entity_type: EntityType) -> None:
-        add_to_existing = (
-                len(self.current_ids) > 0 and
-                "2" == input("Choose to either:     1. replace existing;     2. add to existing     (default=1): "))
+        class FindResultChoice(Enum):
+            Add = 0
+            Replace = 1
+
+        choice = input_enum(FindResultChoice, "Choose to either")
         print("Enter query params:")
         filters = {
             "nameHas": input("- Name has: ") or None,
@@ -355,7 +362,13 @@ class TimelineTrackerCLI:
         elif len(entity_name_and_ids) == 1:
             entity = entity_name_and_ids[0]
             print(f"   Only one matching {entity_type.value} found, auto selecting: {entity[0]} ({entity[1]})")
-            self.current_ids = [entity[1], *(self.current_ids if add_to_existing else {})]
+            if choice == FindResultChoice.Add:
+                other_ids = self.current_ids
+            elif choice == FindResultChoice.Replace:
+                other_ids = []
+            else:
+                raise NotImplementedError(f"Unhandled result choice '{choice.name}'")
+            self.current_ids = [entity[1], *other_ids]
             return
 
         print(f"Pick 1 or more (comma delimited) from the following {entity_type.value}s (or 'a' for all)")
@@ -371,7 +384,8 @@ class TimelineTrackerCLI:
             chosen_ids.append(entity_name_and_ids[int(choice)][1])
         if add_all:
             chosen_ids.extend(set(map(lambda name_and_id: name_and_id[1], entity_name_and_ids)).difference(chosen_ids))
-        if add_to_existing:
+
+        if choice == FindResultChoice.Add:
             chosen_ids.extend(self.current_ids.difference(chosen_ids))
         self.current_ids = chosen_ids
 
