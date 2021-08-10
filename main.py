@@ -92,15 +92,16 @@ class _Selection:
 
     @current_ids.setter
     def current_ids(self, value: Union[Tuple[str, Iterable[str]], Iterable[str]]) -> None:
+        if not value:
+            self._current_ids = []
+            return
         if type(value) is tuple:
             value: Tuple[str, Iterable[str]]
             focus_id, other_ids = value
         else:
             all_ids = list(value)
             focus_id = all_ids[0]
-            other_ids = all_ids[1:]
-        other_ids = set(other_ids)
-        other_ids.remove(focus_id)
+            other_ids = set(all_ids[1:]).difference([focus_id])
         self._current_ids = [focus_id, *other_ids]
         self._update_cached_selection()
 
@@ -337,8 +338,9 @@ class TimelineTrackerCLI:
         class FindResultChoice(Enum):
             Add = 0
             Replace = 1
+            Remove = 2
 
-        choice = input_enum(FindResultChoice, "Choose to either")
+        result_operation = input_enum(FindResultChoice, "Choose to either")
         print("Enter query params:")
         filters = {
             "nameHas": input("- Name has: ") or None,
@@ -362,31 +364,38 @@ class TimelineTrackerCLI:
         elif len(entity_name_and_ids) == 1:
             entity = entity_name_and_ids[0]
             print(f"   Only one matching {entity_type.value} found, auto selecting: {entity[0]} ({entity[1]})")
-            if choice == FindResultChoice.Add:
+            if result_operation == FindResultChoice.Add:
+                focus_id = entity[1]
                 other_ids = self.current_ids
-            elif choice == FindResultChoice.Replace:
+            elif result_operation == FindResultChoice.Replace:
+                focus_id = entity[1]
                 other_ids = []
+            elif result_operation == FindResultChoice.Remove:
+                focus_id = self.focus_id if self.focus_id != entity[1] else self.current_ids.pop()
+                other_ids = self.current_ids.difference([focus_id, entity[1]])
             else:
-                raise NotImplementedError(f"Unhandled result choice '{choice.name}'")
-            self.current_ids = [entity[1], *other_ids]
+                raise NotImplementedError(f"Unhandled result choice '{result_operation.name}'")
+            self.current_ids = [focus_id, *other_ids]
             return
 
         print(f"Pick 1 or more (comma delimited) from the following {entity_type.value}s (or 'a' for all)")
         for index, (entity_name, entity_id) in enumerate(entity_name_and_ids):
             print(f"{index}. {entity_name} ({entity_id})")
-        choices = input("Select number: ").split(",")
+        selections = input("Select number: ").split(",")
         chosen_ids = []
         add_all = False
-        for choice in choices:
-            if choice == "a":
+        for selected in selections:
+            if selected == "a":
                 add_all = True
                 continue
-            chosen_ids.append(entity_name_and_ids[int(choice)][1])
+            chosen_ids.append(entity_name_and_ids[int(selected)][1])
         if add_all:
             chosen_ids.extend(set(map(lambda name_and_id: name_and_id[1], entity_name_and_ids)).difference(chosen_ids))
 
-        if choice == FindResultChoice.Add:
+        if result_operation == FindResultChoice.Add:
             chosen_ids.extend(self.current_ids.difference(chosen_ids))
+        elif result_operation == FindResultChoice.Remove:
+            chosen_ids = self.current_ids.difference(chosen_ids)
         self.current_ids = chosen_ids
 
     def _handle_modify_entity(self) -> None:
