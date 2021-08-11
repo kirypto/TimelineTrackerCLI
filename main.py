@@ -95,13 +95,13 @@ class _Selection:
         if not value:
             self._current_ids = []
             return
+
         if type(value) is tuple:
             value: Tuple[str, Iterable[str]]
             focus_id, other_ids = value
         else:
-            all_ids = list(value)
-            focus_id = all_ids[0]
-            other_ids = set(all_ids[1:]).difference([focus_id])
+            focus_id, *other_ids = value
+            other_ids = set(other_ids).difference([focus_id])
         self._current_ids = [focus_id, *other_ids]
         self._update_cached_selection()
 
@@ -365,17 +365,15 @@ class TimelineTrackerCLI:
             entity = entity_name_and_ids[0]
             print(f"   Only one matching {entity_type.value} found, auto selecting: {entity[0]} ({entity[1]})")
             if result_operation == FindResultChoice.Add:
-                focus_id = entity[1]
-                other_ids = self.current_ids
+                self.current_ids = [(entity[1]), *self.current_ids]
             elif result_operation == FindResultChoice.Replace:
-                focus_id = entity[1]
-                other_ids = []
+                self.current_ids = [(entity[1])]
             elif result_operation == FindResultChoice.Remove:
-                focus_id = self.focus_id if self.focus_id != entity[1] else self.current_ids.pop()
-                other_ids = self.current_ids.difference([focus_id, entity[1]])
+                focus_id = [self.focus_id] if self.focus_id != entity[1] else []
+                other_ids = self.current_ids.difference([*focus_id, entity[1]])
+                self.current_ids = [*focus_id, *other_ids]
             else:
                 raise NotImplementedError(f"Unhandled result choice '{result_operation.name}'")
-            self.current_ids = [focus_id, *other_ids]
             return
 
         print(f"Pick 1 or more (comma delimited) from the following {entity_type.value}s (or 'a' for all)")
