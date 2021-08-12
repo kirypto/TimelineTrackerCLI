@@ -5,7 +5,7 @@ from pathlib import Path
 from shutil import get_terminal_size
 from typing import Dict, NoReturn, Optional, Any, Set, List, Union, Tuple, Iterable
 
-from map import MapView, CityMarker, BuildingMarker
+from map import MapView, CityMarker, BuildingMarker, MapItem
 from timeline_tracker_gateway import TimelineTrackerGateway
 from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict, get_entity_type, Span, get_image, Range, \
     input_enum
@@ -520,12 +520,17 @@ class TimelineTrackerCLI:
                 continuum_high = TimeHelper.input_ymdh(f"    - Enter continuum high: ")
                 continuum = self.continuum = Range(continuum_low, continuum_high)
 
-        entities_by_id: Dict[str, dict] = {}
-        for entity_id in self.current_ids:
-            entity = self._gateway.get_entity(get_entity_type(entity_id).value, entity_id)
-            entities_by_id[entity_id] = entity
+        entities = list(map(lambda e_id: self._gateway.get_entity(get_entity_type(e_id).value, e_id), self.current_ids))
+        map_items = self._construct_map_representations(entities, image_key, continuum, reality)
+        for map_item in map_items:
+            map_view.add_item(map_item)
+        map_view.render(elevation=30, azimuth=-130)
 
-        for entity_id, entity in entities_by_id.items():
+    @staticmethod
+    def _construct_map_representations(entities: List[Dict[str, Any]], image_key: str, continuum: Range, reality: int) -> List[MapItem]:
+        map_items: List[MapItem] = []
+        for entity in entities:
+            entity_id: str = entity["id"]
             entity_type = get_entity_type(entity_id)
             name = entity["name"]
             if entity_type == EntityType.LOCATION:
@@ -547,10 +552,10 @@ class TimelineTrackerCLI:
                         image = None
                 else:
                     image = None
-                map_view.add_item(marker_class(span, image=image, label=name))
+                map_items.append(marker_class(span, image=image, label=name))
             else:
                 print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as type {entity_type} is not supported")
-        map_view.render(elevation=30, azimuth=-130)
+        return map_items
 
 
 def _main(*, url: Optional[str], mm_conversion: Optional[float]) -> NoReturn:
