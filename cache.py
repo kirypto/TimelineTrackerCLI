@@ -1,9 +1,10 @@
+import pickle
 from datetime import datetime, timedelta
 from pathlib import Path
 from re import match
 from time import sleep
 from typing import Any, TypeVar, Optional, Callable, Dict
-import pickle
+from copy import deepcopy
 
 _MILLIS_PER_HOUR = 1000 * 60 * 60
 
@@ -64,7 +65,7 @@ class Cache:
         if item_key not in self._memory_cache:
             self._store(item_key, method(*args, **kwargs))
 
-        return self._memory_cache[item_key]
+        return deepcopy(self._memory_cache[item_key])
 
     @staticmethod
     def _get_item_key(method: Callable, *args, **kwargs) -> str:
@@ -235,6 +236,15 @@ def _test():
     result = cache.get(baz, 12, a=1, b=1)
     ensure("Check cache get result on hit", 12, result)
     ensure("Check method not called on hit", 4, test_data["baz_call_count"])
+
+    def foobar(val: str) -> Dict[str, str]:
+        return {"key": val}
+
+    cache = Cache("test")
+    item = cache.get(foobar, "expectedValue")
+    item["key"] = "shouldBeOverridden"
+    result = cache.get(foobar, "expectedValue")
+    ensure("Check cache get result is not affected by external mutations", "expectedValue", result["key"])
 
     success_count = test_data["test_successes"]
     failure_count = test_data["test_failures"]
