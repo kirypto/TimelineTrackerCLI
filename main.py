@@ -269,6 +269,17 @@ class TimelineTrackerCLI:
 
     def _handle_get_entity_detail(self) -> None:
         entity = self._gateway.get_entity(self.focus_entity_type.value, self.focus_id)
+        if self.focus_entity_type == EntityType.TRAVELER and "y" != input("  Show traveler's full journey? (y/N) ").lower():
+            entity["journey"] = f"<{len(entity['journey'])} positions>"
+        if "span" in entity and "y" != input(f"  Show {self.focus_entity_type.value}'s raw span? (y/N)").lower():
+            span = Span(entity["span"])
+            entity["span"] = {
+                "latitude": str(span.latitude),
+                "longitude": str(span.longitude),
+                "altitude": str(span.altitude),
+                "continuum": str(span.continuum),
+                "reality": str(span.reality),
+            }
         print(dumps(entity, indent=2))
 
     def _handle_create_entity(self, entity_type: EntityType) -> None:
