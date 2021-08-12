@@ -24,7 +24,7 @@ class Colours:
     Black: Colour = (0., 0., 0., 1.)
 
 
-class _MapItem(ABC):
+class MapItem(ABC):
     _span: Span
     _image: Image
     _colour: Colour
@@ -62,8 +62,8 @@ class _MapItem(ABC):
         )
 
     @staticmethod
-    def sort_key(by: str = "alt") -> Callable[["_MapItem"], float]:
-        def inner(map_item: _MapItem) -> float:
+    def sort_key(by: str = "alt") -> Callable[["MapItem"], float]:
+        def inner(map_item: MapItem) -> float:
             if by == "alt":
                 return map_item._span.altitude.low
             else:
@@ -71,7 +71,7 @@ class _MapItem(ABC):
         return inner
 
 
-class CityMarker(_MapItem):
+class CityMarker(MapItem):
     _line_data: Optional[List[LineData]]
 
     @property
@@ -90,7 +90,7 @@ class CityMarker(_MapItem):
         self._line_data = None
 
 
-class BuildingMarker(_MapItem):
+class BuildingMarker(MapItem):
     _line_data: Optional[List[LineData]]
 
     @property
@@ -115,7 +115,7 @@ class MapView:
     _figure: Figure
     _axes_3d: Axes3D
     _axes_2d: Axes
-    _map_items: Set[_MapItem]
+    _map_items: Set[MapItem]
 
     def __init__(self) -> None:
         if pyplot.get_fignums():
@@ -135,7 +135,7 @@ class MapView:
         self._axes_3d.set_zlabel("altitude")
         self._map_items = set()
 
-    def add_item(self, item: _MapItem) -> None:
+    def add_item(self, item: MapItem) -> None:
         self._map_items.add(item)
 
     def clear(self) -> None:
@@ -147,7 +147,7 @@ class MapView:
             return
         map_x_high, map_x_low, map_y_high, map_y_low, map_z_high, map_z_low = self._calculate_render_limits()
 
-        for item in sorted(self._map_items, key=_MapItem.sort_key("alt")):
+        for item in sorted(self._map_items, key=MapItem.sort_key("alt")):
             (item_x_low, item_x_high), (item_y_low, item_y_high), _ = item.limits
             if item.image:
                 self._axes_2d.imshow(item.image, extent=[item_x_low, item_x_high, item_y_low, item_y_high])
