@@ -5,6 +5,8 @@ from pathlib import Path
 from shutil import get_terminal_size
 from typing import Dict, NoReturn, Optional, Any, Set, List, Union, Tuple, Iterable
 
+from PIL.Image import Image
+
 from map import MapView, CityMarker, BuildingMarker, MapItem
 from timeline_tracker_gateway import TimelineTrackerGateway
 from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict, get_entity_type, Span, get_image, Range, \
@@ -533,29 +535,43 @@ class TimelineTrackerCLI:
             entity_id: str = entity["id"]
             entity_type = get_entity_type(entity_id)
             name = entity["name"]
+            image = TimelineTrackerCLI._get_image_optional(entity, image_key)
             if entity_type == EntityType.LOCATION:
                 span = Span(entity["span"])
-                if reality not in span.reality:
-                    print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as it is not in reality {reality}")
-                    continue
-                if span.continuum.low > continuum.high or span.continuum.high < continuum.low:
-                    print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as it is not in continuum {continuum}")
+                if not TimelineTrackerCLI._is_span_in_query_area(span, continuum, reality, print_skip=True, identifier=entity["name"]):
                     continue
                 if len({"city", "town", "capital"}.intersection(entity["tags"])):
                     marker_class = CityMarker
                 else:
                     marker_class = BuildingMarker
-                if image_key in entity["metadata"]:
-                    try:
-                        image = get_image(entity["metadata"][image_key])
-                    except RuntimeError:
-                        image = None
-                else:
-                    image = None
                 map_items.append(marker_class(span, image=image, label=name))
             else:
                 print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as type {entity_type} is not supported")
         return map_items
+
+    @staticmethod
+    def _is_span_in_query_area(span, continuum, reality, *, print_skip: bool = False, identifier: str = ""):
+        is_in_query_area = True
+        if reality not in span.reality:
+            if print_skip:
+                print(f"  !! Skipping rendering {identifier} as it is not in query reality {reality}")
+            is_in_query_area = False
+        if span.continuum.low > continuum.high or span.continuum.high < continuum.low:
+            if print_skip:
+                print(f"  !! Skipping rendering {identifier} as it is not in query continuum {continuum}")
+            is_in_query_area = False
+        return is_in_query_area
+
+    @staticmethod
+    def _get_image_optional(entity: Dict[str, Any], image_key: str) -> Optional[Image]:
+        if image_key in entity["metadata"]:
+            try:
+                image = get_image(entity["metadata"][image_key])
+            except RuntimeError:
+                image = None
+        else:
+            image = None
+        return image
 
 
 def _main(*, url: Optional[str], mm_conversion: Optional[float]) -> NoReturn:
