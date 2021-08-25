@@ -540,7 +540,7 @@ class TimelineTrackerCLI:
                 span = Span(entity["span"])
                 if not TimelineTrackerCLI._is_span_in_query_area(span, continuum, reality, print_skip=True, identifier=entity["name"]):
                     continue
-                if entity["tags"].intersection({"city", "town", "capital"}):
+                if {"city", "town", "capital"}.intersection(entity["tags"]):
                     marker_class = CityMarker
                 else:
                     marker_class = BuildingMarker
