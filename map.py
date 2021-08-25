@@ -22,6 +22,7 @@ class Colours:
     Blue: Colour = (0., 0., 1., 1.)
     Green: Colour = (0., 1., 0., 1.)
     Black: Colour = (0., 0., 0., 1.)
+    Yellow: Colour = (1., 1., 0., 1.)
 
 
 class MapItem(ABC):
@@ -68,6 +69,7 @@ class MapItem(ABC):
                 return map_item._span.altitude.low
             else:
                 raise ValueError(f"Cannot order Map items by '{by}'")
+
         return inner
 
 
@@ -90,7 +92,7 @@ class CityMarker(MapItem):
         self._line_data = None
 
 
-class BuildingMarker(MapItem):
+class CuboidMarker(MapItem):
     _line_data: Optional[List[LineData]]
 
     @property
@@ -103,12 +105,17 @@ class BuildingMarker(MapItem):
             )
         return self._line_data
 
-    def __init__(self, span: Span, *, colour: Colour = Colours.Green, image: Image = None, label: str = None) -> None:
+    def __init__(self, span: Span, *, colour: Colour = Colours.Yellow, image: Image = None, label: str = None) -> None:
         if not is_color_like(colour):
             raise ValueError(f"Provided colour '{colour}' could not be interpreted")
         colour_mutated = _randomize_colour(colour)
-        super(BuildingMarker, self).__init__(span, colour=colour_mutated, image=image, label=label)
+        super(CuboidMarker, self).__init__(span, colour=colour_mutated, image=image, label=label)
         self._line_data = None
+
+
+class BuildingMarker(CuboidMarker):
+    def __init__(self, span: Span, *, colour: Colour = Colours.Green, image: Image = None, label: str = None) -> None:
+        super().__init__(span, colour=colour, image=image, label=label)
 
 
 class MapView:
