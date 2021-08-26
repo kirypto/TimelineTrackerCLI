@@ -581,11 +581,14 @@ class TimelineTrackerCLI:
         return image
 
 
-def _main(*, url: Optional[str], mm_conversion: Optional[float]) -> NoReturn:
+def _main(
+        *, url: Optional[str], mm_conversion: Optional[float], auth_user: Optional[str] = None, auth_pass: Optional[str] = None
+) -> NoReturn:
     for config_val, expected_type in [(url, str), (mm_conversion, float)]:
         if config_val is not None and type(config_val) is not expected_type:
             raise ValueError(f"Invalid configuration, needed {expected_type}, was given {config_val}")
-    gateway = TimelineTrackerGateway(url)
+    auth = (auth_user, auth_pass) if auth_user and auth_pass else None
+    gateway = TimelineTrackerGateway(url, auth=auth)
 
     tool = TimelineTrackerCLI(gateway, mm_conversion)
     tool.main_loop()

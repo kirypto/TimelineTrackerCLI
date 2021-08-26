@@ -1,21 +1,26 @@
 from http import HTTPStatus
-from typing import Dict, Any, List, Union
+from typing import Dict, Any, List, Union, Tuple
 
-import requests
+from requests import Session
 
 from cache import Cache
 
 
 class TimelineTrackerGateway:
     _url: str
+    _cache: Cache
+    _session: Session
 
-    def __init__(self, url: str):
+    def __init__(self, url: str, *, auth: Tuple[str, str] = None):
         self._url = url
         self._cache = Cache("TimelineTrackerGateway", file=True)
+        self._session = Session()
+        if auth:
+            self._session.auth = auth
 
     def post_entity(self, resource: str, entity_json: Dict[str, Any]) -> Dict[str, Any]:
         url = f"{self._url}/api/{resource}"
-        response = requests.post(url, json=entity_json)
+        response = self._session.post(url, json=entity_json)
         if response.status_code != HTTPStatus.CREATED:
             raise RuntimeError(f"Failed to post entity: {response.text}")
         self._cache.flush()
@@ -26,7 +31,7 @@ class TimelineTrackerGateway:
 
     def patch_entity(self, resource: str, entity_id: str, patches: List[dict]) -> Dict[str, Any]:
         url = f"{self._url}/api/{resource}/{entity_id}"
-        response = requests.patch(url, json=patches)
+        response = self._session.patch(url, json=patches)
         if response.status_code != HTTPStatus.OK:
             raise RuntimeError(f"Failed to patch entity: {response.text}")
         self._cache.invalidate(self._inner_get_entity, resource, entity_id)
@@ -40,7 +45,7 @@ class TimelineTrackerGateway:
         if filter_kwargs:
             url += "?"
             url += "&".join([f"{key}={val}" for key, val in filter_kwargs.items()])
-        response = requests.get(url)
+        response = self._session.get(url)
         if response.status_code != HTTPStatus.OK:
             raise RuntimeError(f"Failed to get timeline: {response.text}")
         return response.json()
@@ -50,7 +55,7 @@ class TimelineTrackerGateway:
 
     def _inner_get_entity(self, resource: str, entity_id: str) -> Dict[str, Any]:
         url = f"{self._url}/api/{resource}/{entity_id}"
-        response = requests.get(url)
+        response = self._session.get(url)
         if response.status_code != HTTPStatus.OK:
             raise RuntimeError(f"Failed to get entity: {response.text}")
         return response.json()
@@ -60,7 +65,7 @@ class TimelineTrackerGateway:
         if filter_kwargs:
             url += "?"
             url += "&".join([f"{key}={val}" for key, val in filter_kwargs.items()])
-        response = requests.get(url)
+        response = self._session.get(url)
         if response.status_code != HTTPStatus.OK:
             raise RuntimeError(f"Failed to get entities: {response.text}")
         return response.json()
