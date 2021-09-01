@@ -50,6 +50,7 @@ class _Selection:
     _reality: int
     _continuum: Range
     _current_ids: List[str]
+    _show_linked_events: bool
 
     @property
     def unit_scale(self) -> Optional[float]:
@@ -107,12 +108,24 @@ class _Selection:
         self._current_ids = [focus_id, *other_ids]
         self._update_cached_selection()
 
-    def __init__(self, *, unit_scale: float = None, current_ids: List[str] = None, continuum: Range = None, reality: int = None) -> None:
+    @property
+    def show_linked_events(self) -> bool:
+        return self._show_linked_events
+
+    @show_linked_events.setter
+    def show_linked_events(self, value: bool) -> None:
+        self._show_linked_events = value
+
+    def __init__(
+            self, *, unit_scale: float = None, current_ids: List[str] = None, continuum: Range = None, reality: int = None,
+            show_linked_events: bool = None,
+    ) -> None:
         cached_selection = self._load_cached_selection()
         self._unit_scale = unit_scale or cached_selection.get("unit_scale", None) or None
         self._continuum = continuum or Range(*cached_selection["continuum"].values()) if "continuum" in cached_selection else Range(0)
         self._reality = reality if reality is not None else cached_selection.get("reality", 0)
         self._current_ids = current_ids or cached_selection.get("current_ids", None) or []
+        self._show_linked_events = show_linked_events or cached_selection.get("show_linked_events", None) or True
 
     def _update_cached_selection(self) -> None:
         selection = {
@@ -123,6 +136,7 @@ class _Selection:
             },
             "reality": self._reality,
             "current_ids": self._current_ids,
+            "show_linked_events": self._show_linked_events,
         }
         selection_cache_file = self._get_cache_file()
         selection_cache_file.write_text(dumps(selection, indent=2), encoding="utf8")
@@ -510,8 +524,9 @@ class TimelineTrackerCLI:
         map_view = MapView()
         reality = self._selection.reality
         continuum = self.continuum
+        show_linked_events = self._selection.show_linked_events
         image_key = "image-ld-url"
-        print(f" Render Settings: continuum={continuum}, reality={reality}, imgQuality=Low")
+        print(f" Render Settings: continuum={continuum}, reality={reality}, imgQuality=Low, linkedEvents={show_linked_events}")
         if "y" == input("  Modify Settings? (y/N) ").lower():
             if "h" == input("    - Image quality: low or high? (L/h) ").lower():
                 image_key = "image-hd-url"
@@ -521,8 +536,20 @@ class TimelineTrackerCLI:
                 continuum_low = TimeHelper.input_ymdh(f"    - Enter continuum low: ")
                 continuum_high = TimeHelper.input_ymdh(f"    - Enter continuum high: ")
                 continuum = self.continuum = Range(continuum_low, continuum_high)
+            show_linked_events = self._selection.show_linked_events = ("y" == input("    - Show linked events? (Y/n) ").lower())
 
-        entities = list(map(lambda e_id: self._gateway.get_entity(get_entity_type(e_id).value, e_id), self.current_ids))
+        entity_ids = set(self.current_ids)
+        if show_linked_events:
+            for entity_id in list(entity_ids):
+                entity_type = get_entity_type(entity_id)
+                if entity_type not in {EntityType.LOCATION, EntityType.TRAVELER}:
+                    continue
+                timeline = self._gateway.get_timeline(entity_type.value, entity_id)
+                for item in timeline:
+                    if isinstance(item, str):
+                        entity_ids.add(item)
+
+        entities = list(map(lambda e_id: self._gateway.get_entity(get_entity_type(e_id).value, e_id), entity_ids))
         map_items = self._construct_map_representations(entities, image_key, continuum, reality)
         for map_item in map_items:
             map_view.add_item(map_item)
