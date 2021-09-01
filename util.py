@@ -209,6 +209,20 @@ class Position:
         self._data = data
 
 
+class Journey:
+    _movements: List[Tuple[Position, bool]]
+
+    @property
+    def movements(self) -> List[Tuple[Position, bool]]:
+        return self._movements
+
+    def __init__(self, data: List[dict]) -> None:
+        self._movements = [
+            (Position(movement["position"]), movement["movement_type"] == "interpolated")
+            for movement in data
+        ]
+
+
 _MILLIS_PER_DAY = 1000 * 60 * 60 * 24
 
 

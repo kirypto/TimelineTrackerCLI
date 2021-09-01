@@ -7,10 +7,10 @@ from typing import Dict, NoReturn, Optional, Any, Set, List, Union, Tuple, Itera
 
 from PIL.Image import Image
 
-from map import MapView, CityMarker, BuildingMarker, MapItem, CuboidMarker, PathMarker
+from map import MapView, CityMarker, BuildingMarker, MapItem, PathMarker, EventMarker
 from timeline_tracker_gateway import TimelineTrackerGateway
 from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict, get_entity_type, Span, get_image, Range, \
-    input_enum, Position
+    input_enum, Journey
 
 
 class _Command(Enum):
@@ -549,10 +549,10 @@ class TimelineTrackerCLI:
                 span = Span(entity["span"])
                 if not TimelineTrackerCLI._is_span_in_query_area(span, continuum, reality, print_skip=True, identifier=entity["name"]):
                     continue
-                map_item = CuboidMarker(span, image=image, label=name)
+                map_item = EventMarker(span, image=image, label=name)
             elif entity_type == EntityType.TRAVELER:
-                journey = [Position(positional_move["position"]) for positional_move in entity["journey"]]
-                map_item = PathMarker(journey=journey)
+                journey = Journey(entity["journey"])
+                map_item = PathMarker(journey)
             else:
                 print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as type {entity_type} is not supported")
                 continue

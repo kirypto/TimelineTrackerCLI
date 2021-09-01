@@ -10,21 +10,33 @@ from matplotlib.colors import is_color_like
 from matplotlib.figure import Figure, figaspect
 from mpl_toolkits.mplot3d import Axes3D
 
-from util import avg, Span, Range, Position
+from util import avg, Span, Range, Position, Journey
 
 LineData = Tuple[List[float], List[float], List[float]]
 Colour = Tuple[float, float, float, float]
 AxesLimit = Tuple[float, float]
 Point3D = Tuple[float, float, float]
-Journey = List[Position]
 MapObjectData = Union[Span, Journey]
 
 
 class Colours:
-    Blue: Colour = (0., 0., 1., 1.)
-    Green: Colour = (0., 1., 0., 1.)
     Black: Colour = (0., 0., 0., 1.)
+    Silver: Colour = (192 / 255, 192 / 255, 192 / 255, 1.)
+    Gray: Colour = (128 / 255, 128 / 255, 128 / 255, 1.)
+    White: Colour = (1., 1., 1., 1.)
+    Maroon: Colour = (128 / 255, 0., 0., 1.)
+    Red: Colour = (1., 0., 0., 1.)
+    Purple: Colour = (128 / 255, 0., 128 / 255, 1.)
+    Fuchsia: Colour = (1., 0., 1., 1.)
+    Green: Colour = (0., 128 / 255, 0., 1.)
+    Lime: Colour = (0., 1., 0., 1.)
+    Olive: Colour = (128 / 255, 128 / 255, 0., 1.)
     Yellow: Colour = (1., 1., 0., 1.)
+    Navy: Colour = (0., 0., 128 / 255, 1.)
+    Blue: Colour = (0., 0., 1., 1.)
+    Teal: Colour = (0., 128 / 255, 128 / 255, 1.)
+    Aqua: Colour = (0., 1., 1., 1.)
+    Orange: Colour = (1., 165 / 255, 0., 1.)
 
 
 class MapItem(ABC):
@@ -68,7 +80,7 @@ class MapItem(ABC):
         else:
             journey = self._object_data
             latitude_low = latitude_high = longitude_low = longitude_high = altitude_low = altitude_high = None
-            for position in journey:
+            for position, is_interpolated in journey.movements:
                 if latitude_low is None:
                     latitude_low = latitude_high = position.latitude
                     longitude_low = longitude_high = position.longitude
@@ -94,7 +106,7 @@ class MapItem(ABC):
                 return 0, span.altitude.low
             else:
                 journey: Journey = map_item._object_data
-                return 1, avg(*[position.altitude for position in journey])
+                return 1, avg(*[position.altitude for position, _ in journey.movements])
 
         return sorted(map_items, key=sort_key)
 
@@ -111,7 +123,7 @@ class CityMarker(MapItem):
             ]
         return self._line_data
 
-    def __init__(self, span: Span, *, colour: Colour = Colours.Blue, image: Image = None, label: str = None) -> None:
+    def __init__(self, span: Span, *, colour: Colour = Colours.Green, image: Image = None, label: str = None) -> None:
         if not is_color_like(colour):
             raise ValueError(f"Provided colour '{colour}' could not be interpreted")
         colour_mutated = _randomize_colour(colour)
@@ -133,7 +145,7 @@ class CuboidMarker(MapItem):
             )
         return self._line_data
 
-    def __init__(self, span: Span, *, colour: Colour = Colours.Yellow, image: Image = None, label: str = None) -> None:
+    def __init__(self, span: Span, *, colour: Colour = Colours.Black, image: Image = None, label: str = None) -> None:
         if not is_color_like(colour):
             raise ValueError(f"Provided colour '{colour}' could not be interpreted")
         colour_mutated = _randomize_colour(colour)
@@ -141,8 +153,13 @@ class CuboidMarker(MapItem):
         self._line_data = None
 
 
+class EventMarker(CuboidMarker):
+    def __init__(self, span: Span, *, colour: Colour = Colours.Orange, image: Image = None, label: str = None) -> None:
+        super().__init__(span, colour=colour, image=image, label=label)
+
+
 class BuildingMarker(CuboidMarker):
-    def __init__(self, span: Span, *, colour: Colour = Colours.Green, image: Image = None, label: str = None) -> None:
+    def __init__(self, span: Span, *, colour: Colour = Colours.Lime, image: Image = None, label: str = None) -> None:
         super().__init__(span, colour=colour, image=image, label=label)
 
 
@@ -152,14 +169,26 @@ class PathMarker(MapItem):
     @property
     def line_data(self) -> List[LineData]:
         if not self._line_data:
-            def to_point(position: Position) -> Point3D:
-                return position.latitude, position.longitude, position.altitude
+            def to_point(_position: Position) -> Point3D:
+                return _position.latitude, _position.longitude, _position.altitude
 
             journey: Journey = self._object_data
-            self._line_data = [_convert_to_line_data([to_point(position) for position in journey])]
+            all_lines: List[LineData] = []
+            current_line = None
+            for position, is_interpolated in journey.movements:
+                if current_line is None:
+                    current_line = [position]
+                elif is_interpolated:
+                    current_line.append(position)
+                else:
+                    all_lines.append(_convert_to_line_data([to_point(position) for position in current_line]))
+                    current_line = []
+            if current_line is not None:
+                all_lines.append(_convert_to_line_data([to_point(position) for position in current_line]))
+            self._line_data = all_lines
         return self._line_data
 
-    def __init__(self, journey: Journey, *, colour: Colour = Colours.Yellow, image: Image = None, label: str = None) -> None:
+    def __init__(self, journey: Journey, *, colour: Colour = Colours.Blue, image: Image = None, label: str = None) -> None:
         if not is_color_like(colour):
             raise ValueError(f"Provided colour '{colour}' could not be interpreted")
         colour_mutated = _randomize_colour(colour)
