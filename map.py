@@ -191,7 +191,7 @@ class PathMarker(MapItem):
     def __init__(self, journey: Journey, *, colour: Colour = Colours.Blue, image: Image = None, label: str = None) -> None:
         if not is_color_like(colour):
             raise ValueError(f"Provided colour '{colour}' could not be interpreted")
-        colour_mutated = _randomize_colour(colour)
+        colour_mutated = _randomize_colour(colour, delta=0.5)
         super().__init__(journey, image=image, colour=colour_mutated, label=label)
         self._line_data = None
 
