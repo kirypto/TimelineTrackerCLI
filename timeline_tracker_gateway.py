@@ -50,6 +50,13 @@ class TimelineTrackerGateway:
             raise RuntimeError(f"Failed to get timeline: {response.text}")
         return response.json()
 
+    def post_traveler_journey(self, traveler_id: str, positional_move: Dict[str, Any]) -> None:
+        url = f"{self._url}/api/traveler/{traveler_id}/journey"
+        response = self._session.post(url, json=positional_move)
+        if response.status_code != HTTPStatus.OK:
+            raise RuntimeError(f"Failed to post entity: {response.text}")
+        self._cache.invalidate(self._inner_get_entity, "traveler", traveler_id)
+
     def invalidate_caches(self) -> None:
         self._cache.flush()
 
