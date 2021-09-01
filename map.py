@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from math import cos, sin, radians
 from random import uniform
-from typing import Tuple, List, Optional, Set, Callable
+from typing import Tuple, List, Optional, Set, Union, Iterable
 
 from PIL.Image import Image
 from matplotlib import pyplot
@@ -10,12 +10,14 @@ from matplotlib.colors import is_color_like
 from matplotlib.figure import Figure, figaspect
 from mpl_toolkits.mplot3d import Axes3D
 
-from util import avg, Span, Range
+from util import avg, Span, Range, Position
 
 LineData = Tuple[List[float], List[float], List[float]]
 Colour = Tuple[float, float, float, float]
 AxesLimit = Tuple[float, float]
 Point3D = Tuple[float, float, float]
+Journey = List[Position]
+MapObjectData = Union[Span, Journey]
 
 
 class Colours:
@@ -26,13 +28,13 @@ class Colours:
 
 
 class MapItem(ABC):
-    _span: Span
+    _object_data: MapObjectData
     _image: Image
     _colour: Colour
     _label: str
 
-    def __init__(self, span: Span, *, image: Image = None, colour: Colour = Colours.Black, label: str = None) -> None:
-        self._span = span
+    def __init__(self, object_data: MapObjectData, *, image: Image = None, colour: Colour = Colours.Black, label: str = None) -> None:
+        self._object_data = object_data
         self._image = image
         self._colour = colour
         self._label = label
@@ -56,21 +58,45 @@ class MapItem(ABC):
 
     @property
     def limits(self) -> Tuple[AxesLimit, AxesLimit, AxesLimit]:
-        return (
-            (self._span.latitude.low, self._span.latitude.high),
-            (self._span.longitude.low, self._span.longitude.high),
-            (self._span.altitude.low, self._span.altitude.high),
-        )
+        if isinstance(self._object_data, Span):
+            span = self._object_data
+            return (
+                (span.latitude.low, span.latitude.high),
+                (span.longitude.low, span.longitude.high),
+                (span.altitude.low, span.altitude.high),
+            )
+        else:
+            journey = self._object_data
+            latitude_low = latitude_high = longitude_low = longitude_high = altitude_low = altitude_high = None
+            for position in journey:
+                if latitude_low is None:
+                    latitude_low = latitude_high = position.latitude
+                    longitude_low = longitude_high = position.longitude
+                    altitude_low = altitude_high = position.altitude
+                else:
+                    latitude_low = min(latitude_low, position.latitude)
+                    latitude_high = max(latitude_high, position.latitude)
+                    longitude_low = min(longitude_low, position.longitude)
+                    longitude_high = max(longitude_high, position.longitude)
+                    altitude_low = min(altitude_low, position.altitude)
+                    altitude_high = max(altitude_high, position.altitude)
+            return (
+                (latitude_low, latitude_high),
+                (longitude_low, longitude_high),
+                (altitude_low, altitude_high),
+            )
 
     @staticmethod
-    def sort_key(by: str = "alt") -> Callable[["MapItem"], float]:
-        def inner(map_item: MapItem) -> float:
-            if by == "alt":
-                return map_item._span.altitude.low
+    def sort_for_map_view(map_items: Iterable["MapItem"]) -> List["MapItem"]:
+        def sort_key(map_item: MapItem) -> Tuple[int, float]:
+            if isinstance(map_item._object_data, Span):
+                span: Span = map_item._object_data
+                return 0, span.altitude.low
             else:
-                raise ValueError(f"Cannot order Map items by '{by}'")
+                journey: Journey = map_item._object_data
+                return 1, avg(*[position.altitude for position in journey])
 
-        return inner
+        return sorted(map_items, key=sort_key)
 
 
 class CityMarker(MapItem):
@@ -79,8 +105,9 @@ class CityMarker(MapItem):
     @property
     def line_data(self) -> List[LineData]:
         if not self._line_data:
+            span: Span = self._object_data
             self._line_data = [
-                _generate_octagon(self._span.latitude, self._span.longitude, self._span.altitude.low),
+                _generate_octagon(span.latitude, span.longitude, span.altitude.low),
             ]
         return self._line_data
 
@@ -98,10 +125,11 @@ class CuboidMarker(MapItem):
     @property
     def line_data(self) -> List[LineData]:
         if not self._line_data:
+            span: Span = self._object_data
             self._line_data = _generate_cuboid(
-                self._span.latitude.low, self._span.latitude.high,
-                self._span.longitude.low, self._span.longitude.high,
-                self._span.altitude.low, self._span.altitude.high
+                span.latitude.low, span.latitude.high,
+                span.longitude.low, span.longitude.high,
+                span.altitude.low, span.altitude.high
             )
         return self._line_data
 
@@ -116,6 +144,27 @@ class CuboidMarker(MapItem):
 class BuildingMarker(CuboidMarker):
     def __init__(self, span: Span, *, colour: Colour = Colours.Green, image: Image = None, label: str = None) -> None:
         super().__init__(span, colour=colour, image=image, label=label)
+
+
+class PathMarker(MapItem):
+    _line_data: Optional[List[LineData]]
+
+    @property
+    def line_data(self) -> List[LineData]:
+        if not self._line_data:
+            def to_point(position: Position) -> Point3D:
+                return position.latitude, position.longitude, position.altitude
+
+            journey: Journey = self._object_data
+            self._line_data = [_convert_to_line_data([to_point(position) for position in journey])]
+        return self._line_data
+
+    def __init__(self, journey: Journey, *, colour: Colour = Colours.Yellow, image: Image = None, label: str = None) -> None:
+        if not is_color_like(colour):
+            raise ValueError(f"Provided colour '{colour}' could not be interpreted")
+        colour_mutated = _randomize_colour(colour)
+        super().__init__(journey, image=image, colour=colour_mutated, label=label)
+        self._line_data = None
 
 
 class MapView:
@@ -154,7 +203,7 @@ class MapView:
             return
         map_x_high, map_x_low, map_y_high, map_y_low, map_z_high, map_z_low = self._calculate_render_limits()
 
-        for item in sorted(self._map_items, key=MapItem.sort_key("alt")):
+        for item in MapItem.sort_for_map_view(self._map_items):
             (item_x_low, item_x_high), (item_y_low, item_y_high), _ = item.limits
             if item.image:
                 self._axes_2d.imshow(item.image, extent=[item_x_low, item_x_high, item_y_low, item_y_high])

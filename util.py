@@ -182,6 +182,33 @@ class Span:
         self._rea = rea if rea is not None else span["reality"]
 
 
+class Position:
+    _data: Dict[str, float]
+
+    @property
+    def latitude(self) -> float:
+        return self._data["latitude"]
+
+    @property
+    def longitude(self) -> float:
+        return self._data["longitude"]
+
+    @property
+    def altitude(self) -> float:
+        return self._data["altitude"]
+
+    @property
+    def continuum(self) -> float:
+        return self._data["continuum"]
+
+    @property
+    def reality(self) -> float:
+        return self._data["reality"]
+
+    def __init__(self, data: Dict[str, float]) -> None:
+        self._data = data
+
+
 _MILLIS_PER_DAY = 1000 * 60 * 60 * 24
 
 
