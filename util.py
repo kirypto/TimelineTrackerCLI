@@ -216,11 +216,14 @@ class Journey:
     def movements(self) -> List[Tuple[Position, bool]]:
         return self._movements
 
-    def __init__(self, data: List[dict]) -> None:
-        self._movements = [
-            (Position(movement["position"]), movement["movement_type"] == "interpolated")
-            for movement in data
-        ]
+    def __init__(self, data: Union[List[dict], List[Tuple[Position, bool]]]) -> None:
+        if isinstance(data[0], dict):
+            self._movements = [
+                (Position(movement["position"]), movement["movement_type"] == "interpolated")
+                for movement in data
+            ]
+        else:
+            self._movements = data
 
 
 _MILLIS_PER_DAY = 1000 * 60 * 60 * 24

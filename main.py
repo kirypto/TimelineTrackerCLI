@@ -10,7 +10,7 @@ from PIL.Image import Image
 from map import MapView, CityMarker, BuildingMarker, MapItem, PathMarker, EventMarker
 from timeline_tracker_gateway import TimelineTrackerGateway
 from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict, get_entity_type, Span, get_image, Range, \
-    input_enum, Journey
+    input_enum, Journey, Position
 
 
 class _Command(Enum):
@@ -602,7 +602,15 @@ class TimelineTrackerCLI:
                 map_item = EventMarker(span, image=image, label=name)
             elif entity_type == EntityType.TRAVELER:
                 journey = Journey(entity["journey"])
-                map_item = PathMarker(journey)
+                filtered_movements: List[Tuple[Position, bool]] = []
+                was_last_included = False
+                for position, is_interpolated in journey.movements:
+                    if position.reality == reality and continuum.low <= position.continuum <= continuum.high:
+                        filtered_movements.append((position, is_interpolated and was_last_included))
+                        was_last_included = True
+                    else:
+                        was_last_included = False
+                map_item = PathMarker(Journey(filtered_movements))
             else:
                 print(f"  !! Skipping rendering {entity_id} ({entity['name']}) as type {entity_type} is not supported")
                 continue
