@@ -21,6 +21,7 @@ class _Command(Enum):
     MODIFY_ENTITY = 4
     TRANSLATE_ENTITY = 5
     GET_TIMELINE = 6
+    APPEND_JOURNEY = 7
     SET_CURRENT_ID = 10
     CHANGE_UNIT_SCALE = 11
     CONVERT_TIME = 12
@@ -230,6 +231,8 @@ class TimelineTrackerCLI:
                     self._handle_get_timeline()
                 elif command == _Command.RENDER_MAP:
                     self._handle_render_map()
+                elif command == _Command.APPEND_JOURNEY:
+                    self._handle_append_journey()
                 else:
                     print(f"ERROR: Unhandled command '{command}'")
             except Exception as e:
@@ -487,6 +490,26 @@ class TimelineTrackerCLI:
 
             modified_entity = self._gateway.patch_entity(entity_type.value, entity_id, patches)
             print(dumps(modified_entity, indent=2), end="\n-----\n")
+
+    def _handle_append_journey(self) -> None:
+        post_all_travelers = len(self.current_ids) > 1 and "a" == input("  Modify FOCUS entity or ALL entities? (F/a) ")
+
+        print("  Enter new position details:")
+        movement_type_choice = input("  - Movement type: (1=interpolated, 2=immediate; default=1) ")
+        positional_move = {
+            "movement_type": ("immediate" if movement_type_choice == "2" else "interpolated"),
+            "position": {
+                "latitude": self._input_spacial_position("  - Latitude: ", mm_conversion=True),
+                "longitude": self._input_spacial_position("  - Longitude: ", mm_conversion=True),
+                "altitude": self._input_spacial_position(" - Altitude: "),
+                "continuum": TimeHelper.input_ymdh(" - Continuum: "),
+                "reality": float(input(" - Reality: ") or 0),
+            },
+        }
+
+        to_post_to = {self.focus_id} if not post_all_travelers else self.current_ids
+        for entity_id in to_post_to:
+            self._gateway.post_traveler_journey(entity_id, positional_move)
 
     def _handle_calculate_age(self) -> None:
         if self.focus_entity_type is not EntityType.TRAVELER:
