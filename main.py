@@ -27,6 +27,7 @@ class _Command(Enum):
     CONVERT_TIME = 12
     CALCULATE_AGE = 13
     RENDER_MAP = 14
+    FLUSH_CACHE = 15
 
     @property
     def display_text(self) -> str:
@@ -151,6 +152,9 @@ class _Selection:
     def _get_cache_file() -> Path:
         return Path(__file__).parent.joinpath("__local_cache__/__selection_cache__")
 
+    def invalidate_caches(self) -> None:
+        self._get_cache_file().write_text("{}", encoding="utf8")
+
 
 class TimelineTrackerCLI:
     _gateway: TimelineTrackerGateway
@@ -234,6 +238,9 @@ class TimelineTrackerCLI:
                     self._handle_render_map()
                 elif command == _Command.APPEND_JOURNEY:
                     self._handle_append_journey()
+                elif command == _Command.FLUSH_CACHE:
+                    self._gateway.invalidate_caches()
+                    self._selection.invalidate_caches()
                 else:
                     print(f"ERROR: Unhandled command '{command}'")
             except Exception as e:
