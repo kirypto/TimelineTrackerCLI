@@ -116,6 +116,7 @@ class _Selection:
     @show_linked_events.setter
     def show_linked_events(self, value: bool) -> None:
         self._show_linked_events = value
+        self._update_cached_selection()
 
     def __init__(
             self, *, unit_scale: float = None, current_ids: List[str] = None, continuum: Range = None, reality: int = None,
