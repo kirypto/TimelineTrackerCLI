@@ -53,6 +53,7 @@ class _Selection:
     _continuum: Range
     _current_ids: List[str]
     _show_linked_events: bool
+    _show_hd_images: bool
 
     @property
     def unit_scale(self) -> Optional[float]:
@@ -119,9 +120,18 @@ class _Selection:
         self._show_linked_events = value
         self._update_cached_selection()
 
+    @property
+    def show_hd_images(self) -> bool:
+        return self._show_hd_images
+
+    @show_hd_images.setter
+    def show_hd_images(self, value: bool) -> None:
+        self._show_hd_images = value
+        self._update_cached_selection()
+
     def __init__(
             self, *, unit_scale: float = None, current_ids: List[str] = None, continuum: Range = None, reality: int = None,
-            show_linked_events: bool = None,
+            show_linked_events: bool = None, show_hd_images: bool = None,
     ) -> None:
         cached_selection = self._load_cached_selection()
         self._unit_scale = unit_scale or cached_selection.get("unit_scale", None) or None
@@ -129,6 +139,7 @@ class _Selection:
         self._reality = reality if reality is not None else cached_selection.get("reality", 0)
         self._current_ids = current_ids or cached_selection.get("current_ids", None) or []
         self._show_linked_events = show_linked_events or cached_selection.get("show_linked_events", None) or True
+        self._show_hd_images = show_hd_images or cached_selection.get("show_hd_images", None) or False
 
     def _update_cached_selection(self) -> None:
         selection = {
@@ -140,6 +151,7 @@ class _Selection:
             "reality": self._reality,
             "current_ids": self._current_ids,
             "show_linked_events": self._show_linked_events,
+            "show_hd_images": self._show_hd_images,
         }
         selection_cache_file = self._get_cache_file()
         selection_cache_file.write_text(dumps(selection, indent=2), encoding="utf8")
@@ -557,18 +569,19 @@ class TimelineTrackerCLI:
         reality = self._selection.reality
         continuum = self.continuum
         show_linked_events = self._selection.show_linked_events
-        image_key = "image-ld-url"
-        print(f" Render Settings: continuum={continuum}, reality={reality}, imgQuality=Low, linkedEvents={show_linked_events}")
+        show_hd_images = self._selection.show_hd_images
+        print(f" Render Settings: continuum={continuum}, reality={reality}, "
+              f"imgQuality={'High' if show_hd_images else 'Low'}, linkedEvents={show_linked_events}")
         if "y" == input("  Modify Settings? (y/N) ").lower():
-            if "h" == input("    - Image quality: low or high? (L/h) ").lower():
-                image_key = "image-hd-url"
+            show_hd_images = self._selection.show_hd_images = ("h" == input("    - Image quality: low or high? (L/h) ").lower())
+            show_linked_events = self._selection.show_linked_events = ("y" == input("    - Show linked events? (Y/n) ").lower())
             r = input(f"    - Enter reality: ({reality}) ")
             reality = self.reality = int(r) if r != "" else reality
             if "y" == input(f"    - Modify continuum? (y/N) ").lower():
                 continuum_low = TimeHelper.input_ymdh(f"    - Enter continuum low: ")
                 continuum_high = TimeHelper.input_ymdh(f"    - Enter continuum high: ")
                 continuum = self.continuum = Range(continuum_low, continuum_high)
-            show_linked_events = self._selection.show_linked_events = ("y" == input("    - Show linked events? (Y/n) ").lower())
+        image_key = "image-hd-url" if show_hd_images else "image-ld-url"
 
         entity_ids = set(self.current_ids)
         if show_linked_events:
