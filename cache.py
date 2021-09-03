@@ -46,6 +46,7 @@ class Cache:
     def flush(self) -> None:
         self._memory_cache = {}
         self._expirations = {}
+        self._write_to_file_cache()
 
     def invalidate(self, method: Callable, *args: Any, **kwargs) -> None:
         item_key = self._get_item_key(method, *args, **kwargs)
@@ -121,6 +122,9 @@ def with_cache(name: Optional[str] = None, *, file: bool = False, timeout_ms: fl
 
         def cache_wrapped_function(*args):
             return wrapping_cache.get_multi(function_to_wrap_in_cache, *args)
+
+        cache_wrapped_function.invalidate_caches = lambda: wrapping_cache.flush()
+
         return cache_wrapped_function
     return caching_decorator
 

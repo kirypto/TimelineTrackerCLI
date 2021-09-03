@@ -241,6 +241,7 @@ class TimelineTrackerCLI:
                 elif command == _Command.FLUSH_CACHE:
                     self._gateway.invalidate_caches()
                     self._selection.invalidate_caches()
+                    get_image.invalidate_caches()
                 else:
                     print(f"ERROR: Unhandled command '{command}'")
             except Exception as e:
