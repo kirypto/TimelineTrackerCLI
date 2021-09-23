@@ -10,7 +10,7 @@ from PIL.Image import Image
 from map import MapView, CityMarker, BuildingMarker, MapItem, PathMarker, EventMarker
 from timeline_tracker_gateway import TimelineTrackerGateway
 from util import TimeHelper, input_multi_line, EntityType, input_entity_type, input_list, input_dict, get_entity_type, Span, get_image, Range, \
-    input_enum, Journey, Position
+    input_enum, Journey, Position, edit_string
 
 
 class _Command(Enum):
@@ -330,7 +330,7 @@ class TimelineTrackerCLI:
             return
         entity_json: Dict[str, Any] = {
             "name": name,
-            "description": input_multi_line("- Description: ")
+            "description": edit_string("Entity Description")
         }
         if entity_type in {EntityType.LOCATION, EntityType.EVENT}:
             entity_json["span"] = {
@@ -452,6 +452,45 @@ class TimelineTrackerCLI:
         patch_all_entities = len(self.current_ids) > 1 and "a" == input("  Modify FOCUS entity or ALL entities? (F/a) ")
         patches = []
         patch_operation_choices = ", ".join([f"{op.display_text}={op.value}" for op in sorted(_PatchOp, key=lambda e: e.value)])
+        if patch_all_entities:
+            print("  NOTE: Any of the following modifications will apply to ALL selected entities.")
+        entity = self._gateway.get_entity(get_entity_type(entity_id).value, entity_id)
+        if "y" == input(f"  Modify name? (y/N) "):
+            patches.append({
+                "op": "replace",
+                "path": "/name",
+                "value": edit_string(entity["name"], "name")
+            })
+        if "y" == input(f"  Modify description? (y/N) "):
+            patches.append({
+                "op": "replace",
+                "path": "/description",
+                "value": edit_string(entity["description"], "description", multi_line=True)
+            })
+        if "span" in entity and "y" == input(f"  Modify span? (y/N) "):
+            patches.append({
+                "op": "replace",
+                "path": "/span",
+                "value": loads(edit_string(dumps(entity["span"], indent=2), "span", multi_line=True, extension=".json"))
+            })
+        if "journey" in entity and "y" == input(f"  Modify journey? (y/N) "):
+            patches.append({
+                "op": "replace",
+                "path": "/journey",
+                "value": loads(edit_string(dumps(entity["journey"], indent=2), "journey", multi_line=True, extension=".json"))
+            })
+        if "y" == input(f"  Modify tags? (y/N) "):
+            patches.append({
+                "op": "replace",
+                "path": "/tags",
+                "value": loads(edit_string(dumps(entity["tags"], indent=2), "tags", multi_line=True, extension=".json"))
+            })
+        if "y" == input(f"  Modify metadata? (y/N) "):
+            patches.append({
+                "op": "replace",
+                "path": "/metadata",
+                "value": loads(edit_string(dumps(entity["metadata"], indent=2), "metadata", multi_line=True, extension=".json"))
+            })
         while True:
             op_raw = input(f"  Input patch 'op' ({patch_operation_choices}, or leave blank to continue): ")
             if op_raw == "":
