@@ -26,7 +26,10 @@ class Cache:
         if not match(r"^[a-zA-Z0-9]+$", name):
             raise ValueError("Argument 'name' must only have alpha-numeric characters")
         self._name = name
-        self._file_path = Path(__file__).parent.joinpath(f"__local_cache__/__{name}__") if file else None
+        cache_folder = Path(__file__).parent.joinpath(f"__local_cache__")
+        if file and not cache_folder.exists():
+            cache_folder.mkdir()
+        self._file_path = cache_folder.joinpath("__{name}__") if file else None
         self._timeout_ms = timeout_ms
         self._memory_cache = {}
         self._expirations = {}
