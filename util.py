@@ -2,6 +2,7 @@ from enum import Enum
 from json import loads
 from math import floor
 from typing import Tuple, Union, Type, List, TypeVar, Dict, Set, Any, Optional
+from click import edit
 
 from PIL.Image import Image, open as img_open
 from requests import get, RequestException
@@ -246,3 +247,26 @@ def input_enum(enum_type: Type[TE], prompt: str = "Select from", *, indent: int 
     raw_choice = input(f"{indent_spacing}{prompt}:   {choices}: ({default_choice}) ")
     choice = enum_type(type(default_choice)(raw_choice) if raw_choice != "" else default_choice)
     return choice
+
+
+def edit_string(
+        initial_string: str, attribute_name: str = None,
+        *, multi_line: bool = False, require_save: bool = False, **kwargs
+) -> str:
+    delimiter = "".ljust(25, "=") + " do not modify this line " + "".ljust(25, "=") + "\n"
+    header = "".ljust(len(delimiter) - 1, "=") + "\n"
+    header += f"| Enter {attribute_name.upper() if attribute_name is not None else 'text'} after the delimiter below.\n"
+    if multi_line:
+        header += "| Multiple lines are permitted for this attribute.\n"
+    else:
+        header += "| Only a single line is permitted, additional lines will be ignored.\n"
+    header += delimiter
+    output_string = edit(header + initial_string, require_save=require_save, **kwargs)
+    try:
+        index = output_string.index(delimiter)
+    except ValueError as e:
+        raise ValueError("Could not locate delimiter in edited text.", e)
+    edited_text = output_string[index + len(delimiter):]
+    if not multi_line:
+        edited_text = edited_text.splitlines(keepends=False)[0]
+    return edited_text
